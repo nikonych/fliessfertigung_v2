@@ -3,17 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <title>Daten</title>
+  <style>
+    .section {
+      border: 1px solid #ccc;
+      padding: 12px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+  </style>
 </head>
 <body>
   <h2>Daten anzeigen</h2>
-  <div id="content"></div>
+
+  <div class="section">
+    <h3>Maschinen</h3>
+    <div id="maschinen-container"></div>
+  </div>
+
+  <div class="section">
+    <h3>Aufträge</h3>
+    <div id="auftrage-container"></div>
+  </div>
+
+  <div class="section">
+    <h3>Arbeitspläne</h3>
+    <div id="arbeitsplan-container"></div>
+  </div>
+
   <button onclick="window.location.href='home.html'">Zurück</button>
 
   <script type="module">
-    import { showMaschinen } from '../ui/maschine.js';
+    import { showMaschinen } from "../ui/maschine.js";
+    import { showAuftrage } from "../ui/auftrag.js";
+    import { showArbeitsplan } from "../ui/arbeitsplan.js";
 
     document.addEventListener("DOMContentLoaded", () => {
-      showMaschinen("content");
+      showMaschinen("maschinen-container");
+      showAuftrage("auftrage-container");
+      showArbeitsplan("arbeitsplan-container");
     });
   </script>
 </body>
