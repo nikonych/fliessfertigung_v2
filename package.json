@@ -1,0 +1,23 @@
+{
+  "name": "fliessfertigung_v2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nikonych/fliessfertigung_v2.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nikonych/fliessfertigung_v2/issues"
+  },
+  "homepage": "https://github.com/nikonych/fliessfertigung_v2#readme",
+  "devDependencies": {
+    "electron": "^36.2.1"
+  }
+}
