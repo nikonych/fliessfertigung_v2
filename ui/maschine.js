@@ -1,39 +1,40 @@
 const sqlite3 = require('sqlite3').verbose();
+const path = require("path");
+const fs = require("fs");
 
-// Path to your database
-const db = new sqlite3.Database('./manufacturing.db', sqlite3.OPEN_READONLY, (err) => {
-  if (err) {
-    console.error("Error opening DB:", err.message);
-  } else {
-    console.log("Connected to DB.");
-  }
-});
+const dbPath = path.resolve(__dirname, "../manufacturing.db");
 
-// Get all table names
-db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, tables) => {
-  if (err) {
-    console.error("Failed to fetch table list:", err.message);
-    return;
-  }
+function getMaschineList() {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(dbPath)) {
+      return reject(new Error(`DB not found at ${dbPath}`));
+    }
 
-  tables.forEach((table) => {
-    const tableName = table.name;
-    console.log(`\n--- ${tableName} ---`);
-
-    db.all(`SELECT * FROM ${tableName}`, (err, rows) => {
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
       if (err) {
-        console.error(`Error reading ${tableName}:`, err.message);
-        return;
+        return reject(new Error("Error opening DB: " + err.message));
       }
 
-      if (rows.length === 0) {
-        console.log("(empty)");
-        return;
-      }
+      db.all("SELECT Bezeichnung, verf_von, verf_bis, Kap_Tag FROM Maschine", (err, machines) => {
+        db.close();
 
-      rows.forEach((row, index) => {
-        console.log(`[Row ${index + 1}]`, JSON.stringify(row, null, 2));
+        if (err) {
+          return reject(new Error("Failed to read Maschine: " + err.message));
+        }
+
+        resolve(machines); // This is an array of plain JS objects
       });
     });
   });
-});
+}
+
+// Just for testing to run it!
+getMaschineList()
+  .then((machines) => {
+    machines.forEach((m, i) =>
+      console.log(`[${i + 1}]`, JSON.stringify(m, null, 2))
+    );
+  })
+  .catch((err) => {
+    console.error("DB error:", err.message);
+  });
