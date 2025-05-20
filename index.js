@@ -1,4 +1,6 @@
 const { app, BrowserWindow } = require('electron/main')
+app.commandLine.appendSwitch("gtk-version", "3");
+
 
 const createWindow = () => {
   const win = new BrowserWindow({
