@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Startseite</title>
+</head>
+<body>
+  <h1>Fließfertigung Simulator</h1>
+  <button onclick="navigate('daten.html')">Daten</button>
+  <button onclick="navigate('simulation.html')">Simulation</button>
+  <button onclick="navigate('berichte.html')">Berichte</button>
+  <button onclick="window.close()">Beenden</button>
+
+  <script>
+    function navigate(page) {
+      window.location.href = page;
+    }
+  </script>
+</body>
+</html>

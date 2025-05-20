@@ -1,31 +1,21 @@
-import { Maschine } from '../data/Maschine.js';
-import { Auftrag } from '../data/Auftrag.js';
-import { Arbeitsplan } from '../data/Arbeitsplan.js';
-import { importExcelToDatabase } from '../data/importExcel.js';
-import { checkDatabase } from './check.js';  // если используется
-import { getMaschineList } from './maschine.js';  // если используется
+// ui/main.js
+import { navigateTo } from './router.js';
 
 document.addEventListener("DOMContentLoaded", () => {
   const simulationBtn = document.getElementById("btn-simulation");
   const datenBtn = document.getElementById("btn-daten");
   const berichteBtn = document.getElementById("btn-berichte");
   const exitBtn = document.getElementById("btn-exit");
-  console.log(getMaschineList())
-  simulationBtn.addEventListener("click", () => {
-    alert("Simulation gestartet!");
-    // тут можно вызвать simulation()
-  });
 
-  datenBtn.addEventListener("click", () => {
-    importExcelToDatabase('./21_Simulation_Fliessfertigung (2).xlsx', './manufacturing.db');
-    alert("Daten importiert.");
-  });
+  if (simulationBtn)
+    simulationBtn.addEventListener("click", () => navigateTo("simulation.html"));
 
-  berichteBtn.addEventListener("click", () => {
-    alert("Berichte-Funktion noch nicht implementiert.");
-  });
+  if (datenBtn)
+    datenBtn.addEventListener("click", () => navigateTo("daten.html"));
 
-  exitBtn.addEventListener("click", () => {
-    window.close(); // или через ipcRenderer — если ты хочешь завершить приложение полностью
-  });
+  if (berichteBtn)
+    berichteBtn.addEventListener("click", () => navigateTo("berichte.html"));
+
+  if (exitBtn)
+    exitBtn.addEventListener("click", () => window.close());
 });

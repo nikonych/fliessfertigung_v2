@@ -1,40 +1,44 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require("path");
-const fs = require("fs");
+const { getMaschineList } = require('../db/getMaschinen.js');
 
-const dbPath = path.resolve(__dirname, "../manufacturing.db");
+export function showMaschinen(containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
 
-function getMaschineList() {
-  return new Promise((resolve, reject) => {
-    if (!fs.existsSync(dbPath)) {
-      return reject(new Error(`DB not found at ${dbPath}`));
-    }
+  let maschinen;
 
-    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
-      if (err) {
-        return reject(new Error("Error opening DB: " + err.message));
-      }
+  try {
+    maschinen = getMaschineList();
+  } catch (err) {
+    console.error("Fehler beim Laden:", err);
+    container.innerText = "Fehler beim Laden der Maschinen.";
+    return;
+  }
 
-      db.all("SELECT Bezeichnung, verf_von, verf_bis, Kap_Tag FROM Maschine", (err, machines) => {
-        db.close();
+  if (!maschinen.length) {
+    container.innerText = "Keine Maschinen gefunden.";
+    return;
+  }
 
-        if (err) {
-          return reject(new Error("Failed to read Maschine: " + err.message));
-        }
+  const table = document.createElement("table");
+  table.border = "1";
 
-        resolve(machines); // This is an array of plain JS objects
-      });
+  const header = document.createElement("tr");
+  Object.keys(maschinen[0]).forEach(key => {
+    const th = document.createElement("th");
+    th.textContent = key;
+    header.appendChild(th);
+  });
+  table.appendChild(header);
+
+  maschinen.forEach(row => {
+    const tr = document.createElement("tr");
+    Object.values(row).forEach(val => {
+      const td = document.createElement("td");
+      td.textContent = val;
+      tr.appendChild(td);
     });
+    table.appendChild(tr);
   });
-}
 
-// Just for testing to run it!
-getMaschineList()
-  .then((machines) => {
-    machines.forEach((m, i) =>
-      console.log(`[${i + 1}]`, JSON.stringify(m, null, 2))
-    );
-  })
-  .catch((err) => {
-    console.error("DB error:", err.message);
-  });
+  container.appendChild(table);
+}
