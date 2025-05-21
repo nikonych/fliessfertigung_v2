@@ -31,6 +31,7 @@
     "electron": "^36.2.1"
   },
   "dependencies": {
+    "@electron/remote": "^2.1.2",
     "better-sqlite3": "^11.10.0",
     "electron-squirrel-startup": "^1.0.1",
     "sql.js": "^1.13.0",

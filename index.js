@@ -3,18 +3,21 @@ const path = require('path');
 const Database = require('better-sqlite3');
 app.commandLine.appendSwitch("gtk-version", "3");
 
+const remoteMain = require('@electron/remote/main');
+remoteMain.initialize();
 function createWindow() {
   const win = new BrowserWindow({
     width: 1000,
     height: 700,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
+      contextIsolation: false,
+      enableRemoteModule: true
     }
   });
   // win.removeMenu();
 
-
+  require('@electron/remote/main').enable(win.webContents);
   win.loadFile(path.join(__dirname, 'pages', 'home.html'));
 }
 
