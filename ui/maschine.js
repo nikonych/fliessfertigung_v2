@@ -1,44 +1,104 @@
-const { getMaschineList } = require('../db/getMaschinen.js');
+const {getMaschineList} = require('../db/getMaschinen.js');
 
 export function showMaschinen(containerId) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = "";
+    const {getMaschineList} = require("../db/getMaschinen.js");
+    const container = document.getElementById(containerId);
+    container.innerHTML = "";
 
-  let maschinen;
+    let maschinen;
+    try {
+        maschinen = getMaschineList();
+    } catch (e) {
+        container.innerText = "Fehler beim Laden";
+        return;
+    }
 
-  try {
-    maschinen = getMaschineList();
-  } catch (err) {
-    console.error("Fehler beim Laden:", err);
-    container.innerText = "Fehler beim Laden der Maschinen.";
-    return;
-  }
+    // 🔍 Suchfeld
+    const search = document.createElement("input");
+    search.type = "text";
+    search.placeholder = "🔍 Suche nach Bezeichnung...";
+    search.style = "margin-bottom: 10px; padding: 8px; width: 100%;";
 
-  if (!maschinen.length) {
-    container.innerText = "Keine Maschinen gefunden.";
-    return;
-  }
+    function excelToDate(serial) {
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(excelEpoch.getTime() + serial * 86400 * 1000);
+        return date.toISOString().split('T')[0];
+    }
 
-  const table = document.createElement("table");
-  table.border = "1";
+    let sortOrder = 1; // ascending
+    let sortKey = null;
 
-  const header = document.createElement("tr");
-  Object.keys(maschinen[0]).forEach(key => {
-    const th = document.createElement("th");
-    th.textContent = key;
-    header.appendChild(th);
-  });
-  table.appendChild(header);
+    const headers = ["Bezeichnung", "verf_von", "verf_bis", "Kap_Tag", "Aktion"];
 
-  maschinen.forEach(row => {
-    const tr = document.createElement("tr");
-    Object.values(row).forEach(val => {
-      const td = document.createElement("td");
-      td.textContent = val;
-      tr.appendChild(td);
-    });
-    table.appendChild(tr);
-  });
+    const renderGrid = (filterText = "") => {
+        container.innerHTML = "";
+        container.appendChild(search);
 
-  container.appendChild(table);
+        const wrapper = document.createElement("div");
+        wrapper.className = "grid-wrapper";
+
+        const headers = ["Bezeichnung", "verf_von", "verf_bis", "Kap_Tag", "Aktion"];
+        const headerRow = document.createElement("div");
+        headerRow.className = "grid-row header";
+
+        for (const key of headers) {
+            const cell = document.createElement("div");
+            cell.className = "grid-cell";
+            cell.textContent = key;
+            headerRow.appendChild(cell);
+        }
+        wrapper.appendChild(headerRow);
+
+        let filtered = maschinen.filter(m =>
+            m.Bezeichnung.toLowerCase().includes(filterText.toLowerCase())
+        );
+
+        if (sortKey) {
+            filtered.sort((a, b) => {
+                const valA = a[sortKey];
+                const valB = b[sortKey];
+                return (valA > valB ? 1 : -1) * sortOrder;
+            });
+        }
+
+        for (const m of filtered) {
+            const row = document.createElement("div");
+            row.className = "grid-row";
+
+            const fields = [
+                m.Bezeichnung,
+                excelToDate(m.verf_von),
+                excelToDate(m.verf_bis),
+                m.Kap_Tag
+            ];
+
+            fields.forEach(val => {
+                const cell = document.createElement("div");
+                cell.className = "grid-cell";
+                cell.textContent = val;
+                row.appendChild(cell);
+            });
+
+            const actionCell = document.createElement("div");
+            actionCell.className = "grid-cell";
+
+            const editBtn = document.createElement("button");
+            editBtn.textContent = "Bearbeiten";
+            editBtn.onclick = () => console.log("Edit", m);
+            editBtn.className = "btn edit";
+
+
+            actionCell.appendChild(editBtn);
+            row.appendChild(actionCell);
+
+            wrapper.appendChild(row);
+        }
+
+        container.appendChild(wrapper);
+    };
+
+    search.addEventListener("input", () => renderGrid(search.value));
+    renderGrid();
+
 }
+

@@ -1,47 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Daten</title>
-  <style>
-    .section {
-      border: 1px solid #ccc;
-      padding: 12px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Daten</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #005fa3;
+            padding: 10px;
+            color: white;
+        }
+
+        .tabs {
+            display: flex;
+            background-color: #f0f0f0;
+            border-bottom: 2px solid #ccc;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .tab:hover {
+            background-color: #ddd;
+        }
+
+        .tab.active {
+            background-color: white;
+            border-bottom: 3px solid #005fa3;
+        }
+
+        .section {
+            display: none;
+            padding: 20px;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .grid-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            margin-top: 16px;
+            gap: 6px;
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            align-items: center;
+        }
+
+        .grid-row.header {
+            background-color: #e0e7ec;
+            font-weight: bold;
+            border: none;
+            text-transform: uppercase;
+        }
+
+        .grid-cell {
+            padding: 6px;
+            word-break: break-word;
+        }
+
+        .btn {
+            padding: 6px 10px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+
+        .btn.edit {
+            background-color: #337ab7;
+            color: white;
+            margin: 3px;
+        }
+
+
+    </style>
 </head>
 <body>
-  <h2>Daten anzeigen</h2>
 
-  <div class="section">
+<header>
+    <h2>Datenübersicht
+        <button class="back" onclick="window.location.href='home.html'">Zurück</button>
+    </h2>
+
+</header>
+
+
+<div class="tabs">
+    <div class="tab active" data-tab="maschinen">Maschinen</div>
+    <div class="tab" data-tab="auftrage">Aufträge</div>
+    <div class="tab" data-tab="arbeitsplan">Arbeitspläne</div>
+</div>
+
+<div id="maschinen" class="section active">
     <h3>Maschinen</h3>
     <div id="maschinen-container"></div>
-  </div>
+</div>
 
-  <div class="section">
+<div id="auftrage" class="section">
     <h3>Aufträge</h3>
     <div id="auftrage-container"></div>
-  </div>
+</div>
 
-  <div class="section">
+<div id="arbeitsplan" class="section">
     <h3>Arbeitspläne</h3>
     <div id="arbeitsplan-container"></div>
-  </div>
+</div>
 
-  <button onclick="window.location.href='home.html'">Zurück</button>
 
-  <script type="module">
-    import { showMaschinen } from "../ui/maschine.js";
-    import { showAuftrage } from "../ui/auftrag.js";
-    import { showArbeitsplan } from "../ui/arbeitsplan.js";
+<script type="module">
+    import {showMaschinen} from "../ui/maschine.js";
+    import {showAuftrage} from "../ui/auftrag.js";
+    import {showArbeitsplan} from "../ui/arbeitsplan.js";
 
     document.addEventListener("DOMContentLoaded", () => {
-      showMaschinen("maschinen-container");
-      showAuftrage("auftrage-container");
-      showArbeitsplan("arbeitsplan-container");
+        showMaschinen("maschinen-container");
+        showAuftrage("auftrage-container");
+        showArbeitsplan("arbeitsplan-container");
+
+        const tabs = document.querySelectorAll(".tab");
+        const sections = document.querySelectorAll(".section");
+
+        tabs.forEach(tab => {
+            tab.addEventListener("click", () => {
+                const target = tab.getAttribute("data-tab");
+
+                tabs.forEach(t => t.classList.remove("active"));
+                sections.forEach(s => s.classList.remove("active"));
+
+                tab.classList.add("active");
+                document.getElementById(target).classList.add("active");
+            });
+        });
     });
-  </script>
+</script>
 </body>
 </html>

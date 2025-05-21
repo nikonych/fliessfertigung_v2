@@ -1,20 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Startseite</title>
+  <title>Fließfertigung Simulator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(to right, #eef2f7, #d9e2ec);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 36px;
+      margin-bottom: 50px;
+      color: #003366;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 260px;
+    }
+
+    button {
+      padding: 14px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      background-color: #005fa3;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    button:hover {
+      background-color: #00447a;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    .exit {
+      background-color: #a33333;
+    }
+
+    .exit:hover {
+      background-color: #7a1f1f;
+    }
+  </style>
 </head>
 <body>
+
   <h1>Fließfertigung Simulator</h1>
-  <button onclick="navigate('daten.html')">Daten</button>
-  <button onclick="navigate('simulation.html')">Simulation</button>
-  <button onclick="navigate('berichte.html')">Berichte</button>
-  <button onclick="window.close()">Beenden</button>
+
+  <div class="menu">
+    <button onclick="navigate('simulation.html')">🔧 Simulation</button>
+    <button onclick="navigate('daten.html')">📊 Daten</button>
+    <button onclick="navigate('berichte.html')">📝 Berichte</button>
+    <button class="exit" onclick="window.close()">🚪 Beenden</button>
+  </div>
 
   <script>
     function navigate(page) {
       window.location.href = page;
     }
   </script>
+
 </body>
 </html>

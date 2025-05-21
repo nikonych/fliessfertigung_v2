@@ -4,13 +4,42 @@
   <meta charset="UTF-8">
   <title>Simulation</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { background: #f5f5f5; display: block; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      background-color: #f5f5f5;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #back-button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 8px 14px;
+      background-color: #005fa3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    #back-button:hover {
+      background-color: #00447a;
+    }
   </style>
 </head>
 <body>
-  <canvas id="canvas" width="1200" height="800"></canvas>
-  <button style="position: absolute; top: 10px; left: 10px;" onclick="window.location.href='home.html'">Zurück</button>
+
+  <button id="back-button" onclick="window.location.href='home.html'">← Zurück</button>
+  <canvas id="canvas"></canvas>
 
   <script type="module" src="../ui/simulation.js"></script>
 </body>

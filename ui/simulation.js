@@ -3,6 +3,15 @@ const ctx = canvas.getContext("2d");
 
 const {getMaschineList} = require("../db/getMaschinen.js"); // путь может отличаться
 
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas(); // вызов при старте
+
 let offsetX = 0, offsetY = 0;
 let scale = 1;
 
@@ -179,6 +188,9 @@ function loadBlocksFromDB() {
         console.error(err);
     }
 }
+
+
+
 
 
 loadBlocksFromDB();

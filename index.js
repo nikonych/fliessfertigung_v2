@@ -12,6 +12,8 @@ function createWindow() {
       contextIsolation: false
     }
   });
+  // win.removeMenu();
+
 
   win.loadFile(path.join(__dirname, 'pages', 'home.html'));
 }
