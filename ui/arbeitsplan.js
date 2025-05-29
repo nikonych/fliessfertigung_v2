@@ -1,4 +1,4 @@
-const { getArbeitsplanList } = require('../db/getB.js');
+const { getArbeitsplanList } = require('../db/getArbeitsplan.js');
 
 export function showArbeitsplan(containerId) {
   const container = document.getElementById(containerId);

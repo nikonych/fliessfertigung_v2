@@ -1,4 +1,4 @@
-const { getAuftragList } = require('../db/getA.js');
+const { getAuftragList } = require('../db/getAuftrag.js');
 
 export function showAuftrage(containerId) {
   const container = document.getElementById(containerId);

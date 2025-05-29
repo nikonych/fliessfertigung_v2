@@ -1,46 +1,145 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Simulation</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-    }
+    <meta charset="UTF-8">
+    <title>Simulation</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
 
-    canvas {
-      display: block;
-      background-color: #f5f5f5;
-      width: 100vw;
-      height: 100vh;
-    }
+        canvas {
+            display: block;
+            background-color: #f5f5f5;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0; /* Ensure canvas is below UI elements */
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
 
-    #back-button {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 8px 14px;
-      background-color: #005fa3;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      z-index: 10;
-    }
+        #back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 8px 14px;
+            background-color: #005fa3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 10;
+        }
 
-    #back-button:hover {
-      background-color: #00447a;
-    }
-  </style>
+        #back-button:hover {
+            background-color: #00447a;
+        }
+
+        #auftragPanel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 280px; /* Reduced to account for padding */
+            height: 100%;
+            background: white;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+            transform: translateX(-100%); /* Hide panel off-screen */
+            transition: transform 0.3s ease;
+            padding: 15px;
+            z-index: 100;
+            box-sizing: border-box; /* Include padding in width */
+            border: 2px solid red; /* Temporary for debugging */
+        }
+
+        #auftragPanel.open {
+            transform: translateX(0); /* Slide in */
+        }
+
+        #toggleAuftragBtn {
+            position: fixed; /* Independent of panel */
+            top: 20px;
+            left: 0; /* Always at screen's left edge */
+            width: 40px;
+            height: 40px;
+            border: none;
+            background-color: #005fa3;
+            color: white;
+            font-size: 20px;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 101; /* Above everything */
+            display: block;
+            line-height: 40px;
+            text-align: center;
+            background: #ff0000; /* Bright red for debugging */
+        }
+
+        #toggleAuftragBtn:hover {
+            background-color: #00447a;
+        }
+
+        #auftragContainer table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        #auftragContainer th, #auftragContainer td {
+            border-bottom: 1px solid #ddd;
+            padding: 6px 8px;
+            text-align: left;
+        }
+
+        #auftragContainer thead {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+    </style>
 </head>
+
 <body>
+    <button id="back-button" onclick="window.location.href='home.html'">← Zurück</button>
 
-  <button id="back-button" onclick="window.location.href='home.html'">← Zurück</button>
-  <canvas id="canvas"></canvas>
+    <div id="controls">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <button id="resetBtn">Reset</button>
+        <label for="speedSlider">Intervall:</label>
+        <select id="speedSlider">
+            <option value="1">1 Min</option>
+            <option value="5">5 Min</option>
+            <option value="10">10 Min</option>
+            <option value="15">15 Min</option>
+            <option value="30">30 Min</option>
+            <option value="60">1 Std</option>
+            <option value="120">2 Std</option>
+            <option value="180">3 Std</option>
+            <option value="300">5 Std</option>
+            <option value="720">12 Std</option>
+            <option value="1440">24 Std</option>
+        </select>
+    </div>
 
-  <script type="module" src="../ui/simulation.js"></script>
+    <canvas id="canvas"></canvas>
+
+    <script type="module" src="../ui/simulation.js"></script>
 </body>
 </html>
