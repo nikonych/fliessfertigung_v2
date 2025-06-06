@@ -5,13 +5,18 @@ const Database = require('better-sqlite3');
 const XLSX = require('xlsx');
 
 // Константы
-const DATA_DIR ="data";
-const DB_PATH = path.join(DATA_DIR, 'manufacturing.db');
+const DB_PATH = path.join(__dirname, '..', 'manufacturing.db');
 
-// Убедимся, что директория для БД существует
+// Убедимся, что можем создать файл БД
 function ensureDatabaseDirExists() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  const projectRoot = path.join(__dirname, '..');
+  // Проверяем права доступа к корневой директории проекта
+  try {
+    fs.accessSync(projectRoot, fs.constants.W_OK);
+    console.log('Корневая директория проекта доступна для записи:', projectRoot);
+  } catch (err) {
+    console.error('Нет прав на запись в корневую директорию:', projectRoot, err);
+    throw new Error('Невозможно создать БД в корневой директории проекта');
   }
 }
 
@@ -92,60 +97,103 @@ function createTables(db) {
 
 // Функция для форматирования чисел (добавление ведущих нулей)
 function formatNumber(num, digits = 3) {
-  if (isNaN(num)) return '0'.repeat(digits);
-  return String(num).padStart(digits, '0');
+  if (num === null || num === undefined || isNaN(num)) return '0'.repeat(digits);
+  return String(Math.floor(Number(num))).padStart(digits, '0');
 }
 
-// Функции для вставки данных с проверкой внешних ключей
+// Функция для проверки и очистки данных
+function isValidRow(row, requiredFields) {
+  return requiredFields.every(field =>
+      row[field] !== null &&
+      row[field] !== undefined &&
+      row[field] !== '' &&
+      !isNaN(row[field]) // для числовых полей
+  );
+}
+
+// Функции для вставки данных
 function insertMaschinen(db, rows) {
+  if (!rows || rows.length === 0) {
+    console.log('Нет данных для импорта Maschine');
+    return;
+  }
+
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO Maschine (Nr, Bezeichnung, verf_von, verf_bis, Kap_Tag)
     VALUES (?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((rows) => {
+    let insertedCount = 0;
     for (const row of rows) {
       try {
+        // Проверяем обязательные поля
+        if (!row.Nr || !row.Bezeichnung) {
+          console.log('Пропускаем строку Maschine с пустыми обязательными полями:', row);
+          continue;
+        }
+
         stmt.run(
             formatNumber(row.Nr, 3),
-            row.Bezeichnung || '',
-            row.verf_von || 0,
-            row.verf_bis || 0,
-            row.Kap_Tag || 0
+            String(row.Bezeichnung || ''),
+            parseInt(row.verf_von) || 0,
+            parseInt(row.verf_bis) || 0,
+            parseInt(row.Kap_Tag) || 0
         );
+        insertedCount++;
       } catch (err) {
         console.error('Ошибка вставки Maschine:', row, err);
       }
     }
+    console.log(`Вставлено записей Maschine: ${insertedCount}`);
   });
 
   insertMany(rows);
 }
 
 function insertAuftraege(db, rows) {
+  if (!rows || rows.length === 0) {
+    console.log('Нет данных для импорта Auftrag');
+    return;
+  }
+
   const stmt = db.prepare(`
     INSERT OR REPLACE INTO Auftrag (auftrag_nr, Anzahl, Start)
     VALUES (?, ?, ?)
   `);
 
   const insertMany = db.transaction((rows) => {
+    let insertedCount = 0;
     for (const row of rows) {
       try {
+        // Проверяем обязательные поля
+        if (!row.auftrag_nr || !row.Anzahl || !row.Start) {
+          console.log('Пропускаем строку Auftrag с пустыми обязательными полями:', row);
+          continue;
+        }
+
         stmt.run(
-            String(row.auftrag_nr || ''),
-            row.Anzahl || 0,
-            row.Start || 0
+            String(row.auftrag_nr),
+            parseInt(row.Anzahl) || 0,
+            parseInt(row.Start) || 0
         );
+        insertedCount++;
       } catch (err) {
         console.error('Ошибка вставки Auftrag:', row, err);
       }
     }
+    console.log(`Вставлено записей Auftrag: ${insertedCount}`);
   });
 
   insertMany(rows);
 }
 
 function insertArbeitsplaene(db, rows) {
+  if (!rows || rows.length === 0) {
+    console.log('Нет данных для импорта Arbeitsplan');
+    return;
+  }
+
   // Проверочные запросы для внешних ключей
   const checkAuftrag = db.prepare('SELECT 1 FROM Auftrag WHERE auftrag_nr = ?');
   const checkMaschine = db.prepare('SELECT 1 FROM Maschine WHERE Nr = ?');
@@ -156,30 +204,48 @@ function insertArbeitsplaene(db, rows) {
   `);
 
   const insertMany = db.transaction((rows) => {
+    let insertedCount = 0;
+    let skippedCount = 0;
+
     for (const row of rows) {
       try {
+        // Проверяем обязательные поля
+        if (!row.auftrag_nr || !row.ag_nr || !row.maschine || !row.dauer) {
+          console.log('Пропускаем строку Arbeitsplan с пустыми обязательными полями:', row);
+          skippedCount++;
+          continue;
+        }
+
+        const auftragNr = String(row.auftrag_nr);
+        const maschineNr = formatNumber(row.maschine, 3);
+
         // Проверка существования Auftrag
-        if (!checkAuftrag.get(row.auftrag_nr)) {
-          console.error(`Auftrag ${row.auftrag_nr} не существует, пропускаем`);
+        if (!checkAuftrag.get(auftragNr)) {
+          console.error(`Auftrag ${auftragNr} не существует, пропускаем`);
+          skippedCount++;
           continue;
         }
 
         // Проверка существования Maschine
-        if (!checkMaschine.get(formatNumber(row.maschine, 3))) {
-          console.error(`Maschine ${row.maschine} не существует, пропускаем`);
+        if (!checkMaschine.get(maschineNr)) {
+          console.error(`Maschine ${maschineNr} не существует, пропускаем`);
+          skippedCount++;
           continue;
         }
 
         stmt.run(
-            String(row.auftrag_nr || ''),
+            auftragNr,
             formatNumber(row.ag_nr, 2),
-            formatNumber(row.maschine, 3),
-            row.dauer || 0
+            maschineNr,
+            parseInt(row.dauer) || 0
         );
+        insertedCount++;
       } catch (err) {
         console.error('Ошибка вставки Arbeitsplan:', row, err);
+        skippedCount++;
       }
     }
+    console.log(`Вставлено записей Arbeitsplan: ${insertedCount}, пропущено: ${skippedCount}`);
   });
 
   insertMany(rows);
@@ -192,38 +258,75 @@ async function importExcelToDatabase(excelPath) {
     ensureDatabaseDirExists();
     db = new Database(DB_PATH);
 
-    // Временно отключаем проверку внешних ключей для надежности
+    // Временно отключаем проверку внешних ключей
     db.pragma('foreign_keys = OFF');
 
     createTables(db);
 
     // Читаем Excel файл
+    console.log('Чтение Excel файла:', excelPath);
     const workbook = XLSX.readFile(excelPath);
+    console.log('Доступные листы:', workbook.SheetNames);
 
-    // Сначала собираем все данные
+    // Собираем данные из всех листов
     const sheetsData = {};
     workbook.SheetNames.forEach(sheetName => {
-      sheetsData[sheetName.toLowerCase()] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      console.log(`Обработка листа: ${sheetName}`);
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        defval: null,  // Значение по умолчанию для пустых ячеек
+        raw: false     // Не преобразовывать типы автоматически
+      });
+
+      console.log(`Лист ${sheetName}: найдено ${jsonData.length} строк`);
+      if (jsonData.length > 0) {
+        console.log(`Первая строка листа ${sheetName}:`, jsonData[0]);
+      }
+
+      sheetsData[sheetName.toLowerCase()] = jsonData;
     });
 
-    // Импортируем в строгом порядке
-    if (sheetsData['maschine']) {
+    // Импортируем в правильном порядке (сначала родительские таблицы)
+
+    // 1. Сначала Maschine
+    const maschineData = sheetsData['maschine'];
+    if (maschineData && maschineData.length > 0) {
       console.log('Импорт Maschine...');
-      insertMaschinen(db, sheetsData['maschine']);
+      insertMaschinen(db, maschineData);
+    } else {
+      console.log('Данные Maschine не найдены или пусты');
     }
 
-    if (sheetsData['auftrag']) {
+    // 2. Затем Auftrag
+    const auftragData = sheetsData['auftrag'];
+    if (auftragData && auftragData.length > 0) {
       console.log('Импорт Auftrag...');
-      insertAuftraege(db, sheetsData['auftrag']);
+      insertAuftraege(db, auftragData);
+    } else {
+      console.log('Данные Auftrag не найдены или пусты');
     }
 
-    if (sheetsData['arbeitsplan']) {
+    // 3. Наконец Arbeitsplan
+    const arbeitsplanData = sheetsData['arbeitsplan'];
+    if (arbeitsplanData && arbeitsplanData.length > 0) {
       console.log('Импорт Arbeitsplan...');
-      insertArbeitsplaene(db, sheetsData['arbeitsplan']);
+      insertArbeitsplaene(db, arbeitsplanData);
+    } else {
+      console.log('Данные Arbeitsplan не найдены или пусты');
     }
 
-    // Включаем проверку обратно
+    // Включаем проверку внешних ключей обратно
     db.pragma('foreign_keys = ON');
+
+    // Проверяем результат
+    const maschineCount = db.prepare('SELECT COUNT(*) as count FROM Maschine').get().count;
+    const auftragCount = db.prepare('SELECT COUNT(*) as count FROM Auftrag').get().count;
+    const arbeitsplanCount = db.prepare('SELECT COUNT(*) as count FROM Arbeitsplan').get().count;
+
+    console.log(`Результат импорта:`);
+    console.log(`- Maschine: ${maschineCount} записей`);
+    console.log(`- Auftrag: ${auftragCount} записей`);
+    console.log(`- Arbeitsplan: ${arbeitsplanCount} записей`);
 
     console.log('Импорт завершен успешно');
     return true;
@@ -262,6 +365,7 @@ window.onload = async () => {
           });
 
           if (!result.canceled && result.filePaths.length > 0) {
+            console.log('Начинаем импорт файла:', result.filePaths[0]);
             await importExcelToDatabase(result.filePaths[0]);
             alert('✅ Данные успешно импортированы!');
             importBtn.style.display = 'none';
