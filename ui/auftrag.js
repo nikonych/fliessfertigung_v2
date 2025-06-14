@@ -1,12 +1,11 @@
-const { getAuftragList } = require('../db/getAuftrag.js');
 
-export function showAuftrage(containerId) {
+export async function showAuftrage(containerId) {
   const container = document.getElementById(containerId);
   container.innerHTML = "";
 
   let auftrage;
   try {
-    auftrage = getAuftragList();
+    auftrage = await window.electronAPI.getAuftraege();
   } catch (err) {
     console.error("Fehler beim Laden:", err);
     container.innerText = "Fehler beim Laden der Aufträge.";

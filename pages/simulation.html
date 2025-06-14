@@ -116,30 +116,31 @@
 </head>
 
 <body>
-    <button id="back-button" onclick="window.location.href='home.html'">← Zurück</button>
+<button id="back-button" onclick="window.location.href='home.html'">← Zurück</button>
 
-    <div id="controls">
-        <button id="startBtn">Start</button>
-        <button id="stopBtn">Stop</button>
-        <button id="resetBtn">Reset</button>
-        <label for="speedSlider">Intervall:</label>
-        <select id="speedSlider">
-            <option value="1">1 Min</option>
-            <option value="5">5 Min</option>
-            <option value="10">10 Min</option>
-            <option value="15">15 Min</option>
-            <option value="30">30 Min</option>
-            <option value="60">1 Std</option>
-            <option value="120">2 Std</option>
-            <option value="180">3 Std</option>
-            <option value="300">5 Std</option>
-            <option value="720">12 Std</option>
-            <option value="1440">24 Std</option>
-        </select>
-    </div>
+<div id="controls">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn">Stop</button>
+    <button id="resetBtn">Reset</button>
+    <label for="speedSlider">Intervall:</label>
+    <select id="speedSlider">
+        <option value="1">1 Min</option>
+        <option value="5">5 Min</option>
+        <option value="10">10 Min</option>
+        <option value="15">15 Min</option>
+        <option value="30">30 Min</option>
+        <option value="60">1 Std</option>
+        <option value="120">2 Std</option>
+        <option value="180">3 Std</option>
+        <option value="300">5 Std</option>
+        <option value="720">12 Std</option>
+        <option value="1440">24 Std</option>
+    </select>
+</div>
 
-    <canvas id="canvas"></canvas>
+<canvas id="canvas"></canvas>
 
-    <script type="module" src="../ui/simulation/canvas.js"></script>
+<script type="module" src="../ui/simulation/canvas.js"></script>
+<script type="module" src="../core/simulation.js"></script>
 </body>
 </html>

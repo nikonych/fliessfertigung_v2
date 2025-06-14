@@ -1,4 +1,3 @@
-const { getArbeitsplanList } = require('../db/getArbeitsplan.js');
 
 export function showArbeitsplan(containerId) {
   const container = document.getElementById(containerId);
@@ -6,7 +5,7 @@ export function showArbeitsplan(containerId) {
 
   let arbeitsplane;
   try {
-    arbeitsplane = getArbeitsplanList();
+    arbeitsplane = window.electronAPI.getArbeitsplanList();
   } catch (err) {
     console.error("Fehler beim Laden:", err);
     container.innerText = "Fehler beim Laden der Arbeitspläne.";

@@ -1,6 +1,6 @@
 import { state } from '../canvas.js';
 import { groups } from '../groupsConfig.js';
-import { getOrderList } from '../dbAdapter.js';
+import { getOrderList } from './dbAdapter.js';
 
 export async function loadAuftraege() {
     const auftraege = await getOrderList();

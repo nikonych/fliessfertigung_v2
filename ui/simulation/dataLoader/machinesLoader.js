@@ -1,5 +1,5 @@
 import { state } from '../canvas.js';
-import { getMachineList } from '../dbAdapter.js';
+import { getMachineList } from './dbAdapter.js';
 
 export async function loadMachines() {
     const machines = await getMachineList();

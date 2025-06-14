@@ -1,4 +1,3 @@
-const {ipcRenderer} = require('electron');
 
 export async function showMaschinen(containerId) {
     const container = document.getElementById(containerId);
@@ -6,7 +5,7 @@ export async function showMaschinen(containerId) {
 
     let maschinen;
     try {
-        maschinen = await ipcRenderer.invoke('get-maschinen');
+        maschinen = await window.electronAPI.getMaschinen();
         console.log(maschinen);
     } catch (e) {
         container.innerText = "Fehler beim Laden";
