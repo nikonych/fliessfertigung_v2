@@ -47,6 +47,7 @@ function resizeCanvas() {
 function setupCanvasInteraction() {
     // Панорамирование мышью
     canvas.addEventListener('mousedown', (e) => {
+        if (window.isPanelDragging) return;
         isDragging = true;
         dragStart.x = e.clientX - offset.x;
         dragStart.y = e.clientY - offset.y;
@@ -54,6 +55,7 @@ function setupCanvasInteraction() {
     });
     
     canvas.addEventListener('mousemove', (e) => {
+        if (window.isPanelDragging) return;
         if (isDragging) {
             offset.x = e.clientX - dragStart.x;
             offset.y = e.clientY - dragStart.y;
