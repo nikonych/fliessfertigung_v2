@@ -15,12 +15,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addAuftrag: (auftrag) => ipcRenderer.invoke('add-auftrag', auftrag),
     addMaschine: (maschine) => ipcRenderer.invoke('add-maschine', maschine),
     addArbeitsplan: (arbeitsplan) => ipcRenderer.invoke('add-arbeitsplan', arbeitsplan),
+    getLastAuftragNr: () => ipcRenderer.invoke('generate-auftrag-nr'),
 
     // Обновление данных
     updateAuftrag: (auftrag_nr, updates) =>
         ipcRenderer.invoke('update-auftrag', auftrag_nr, updates),
-    updateMaschine: (nr, updates) =>
-        ipcRenderer.invoke('update-maschine', nr, updates),
+    updateMaschine: (nr, updates) => ipcRenderer.invoke("update-maschine", nr, updates),
+    deleteMaschine: (nr) => ipcRenderer.invoke("delete-maschine", nr),
+
+    updateArbeitsplan: (auftrag_nr, ag_nr, updates) =>
+        ipcRenderer.invoke("update-arbeitsplan", auftrag_nr, ag_nr, updates),
+
+    deleteArbeitsplan: (auftrag_nr, ag_nr) =>
+        ipcRenderer.invoke("delete-arbeitsplan", auftrag_nr, ag_nr),
+
 
     // Удаление данных
     deleteAuftrag: (auftrag_nr) => ipcRenderer.invoke('delete-auftrag', auftrag_nr),
@@ -40,6 +48,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Получить путь к userData
     getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
     getDbPath: () => ipcRenderer.invoke('get-db-path'),
+    closeDb: () => ipcRenderer.invoke('close-db'),
     isDbEmpty: () => ipcRenderer.invoke('is-db-empty'),
     selectExcelFile: () => ipcRenderer.invoke('select-excel-file'),
     deleteDb: () => ipcRenderer.invoke('delete-db'),            // ❌ Удаление старой БД

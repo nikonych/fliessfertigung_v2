@@ -1,4 +1,3 @@
-// src/main/databaseService.js
 const knex = require('knex');
 const path = require('path');
 const { app } = require('electron');
@@ -6,7 +5,12 @@ const { app } = require('electron');
 const dbPath = path.join(app.getPath('userData'), 'manufacturing.db');
 let db;
 
-function initializeDatabase() {
+function getDb() {
+    if (!db) throw new Error('База данных не инициализирована');
+    return db;
+}
+
+async function initializeDatabase() {
     if (!db) {
         db = knex({
             client: 'better-sqlite3',
@@ -18,10 +22,8 @@ function initializeDatabase() {
 
         console.log(`Database service initialized at: ${dbPath}`);
 
-        // Создание таблиц при первом запуске
-        createTablesIfNotExist();
+        await createTablesIfNotExist(); // обязательно ждать
 
-        // Закрытие соединения с БД при выходе из приложения
         app.on('before-quit', async () => {
             if (db) {
                 await db.destroy();
@@ -31,9 +33,41 @@ function initializeDatabase() {
     }
 }
 
-async function createTablesIfNotExist() {
+async function reinitializeDatabase() {
     try {
-        // Создание таблицы Auftrag
+        console.log('🔄 Переинициализация базы данных...');
+
+        if (db) {
+            await db.destroy();
+            db = null;
+            console.log('Старое соединение закрыто');
+        }
+
+        db = knex({
+            client: 'better-sqlite3',
+            connection: {
+                filename: dbPath
+            },
+            useNullAsDefault: true
+        });
+
+        console.log('✅ Новое соединение создано');
+
+        await createTablesIfNotExist();
+
+        console.log('✅ База данных переинициализирована успешно');
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка переинициализации базы данных:', error);
+        throw error;
+    }
+}
+
+
+async function createTablesIfNotExist() {
+    const db = getDb();
+
+    try {
         const auftraegeExists = await db.schema.hasTable('Auftrag');
         if (!auftraegeExists) {
             await db.schema.createTable('Auftrag', table => {
@@ -42,18 +76,14 @@ async function createTablesIfNotExist() {
                 table.integer('Start');
             });
             console.log('Table "Auftrag" created.');
-
-            // Вставка тестовых данных
             await db('Auftrag').insert([
                 { auftrag_nr: 'A001', Anzahl: 100, Start: 45000 },
                 { auftrag_nr: 'A002', Anzahl: 50, Start: 45001 },
                 { auftrag_nr: 'A003', Anzahl: 75, Start: 45002 },
                 { auftrag_nr: 'A004', Anzahl: 120, Start: 45003 }
             ]);
-            console.log('Initial Auftrag data inserted.');
         }
 
-        // Создание таблицы Maschine
         const maschinenExists = await db.schema.hasTable('Maschine');
         if (!maschinenExists) {
             await db.schema.createTable('Maschine', table => {
@@ -64,48 +94,34 @@ async function createTablesIfNotExist() {
                 table.integer('Kap_Tag');
             });
             console.log('Table "Maschine" created.');
-
-            // Вставка тестовых данных
             await db('Maschine').insert([
                 { Nr: 1, Bezeichnung: 'Станок А', verf_von: 45000, verf_bis: 46000, Kap_Tag: 8 },
                 { Nr: 2, Bezeichnung: 'Станок Б', verf_von: 45000, verf_bis: 46000, Kap_Tag: 6 },
                 { Nr: 3, Bezeichnung: 'Станок В', verf_von: 45000, verf_bis: 46000, Kap_Tag: 10 },
                 { Nr: 4, Bezeichnung: 'Станок Г', verf_von: 45000, verf_bis: 46000, Kap_Tag: 12 }
             ]);
-            console.log('Initial Maschine data inserted.');
         }
 
-        // Создание таблицы Arbeitsplan
         const arbeitsplanExists = await db.schema.hasTable('Arbeitsplan');
         if (!arbeitsplanExists) {
             await db.schema.createTable('Arbeitsplan', table => {
                 table.increments('id').primary();
                 table.text('auftrag_nr').references('auftrag_nr').inTable('Auftrag');
                 table.integer('maschine').references('Nr').inTable('Maschine');
-                table.integer('dauer'); // продолжительность в часах
-                table.integer('reihenfolge'); // порядок выполнения операций
+                table.integer('dauer');
+                table.integer('reihenfolge');
             });
             console.log('Table "Arbeitsplan" created.');
-
-            // Вставка тестовых данных
             await db('Arbeitsplan').insert([
-                // Заказ A001: Станок А (16ч) -> Станок Б (12ч)
                 { auftrag_nr: 'A001', maschine: 1, dauer: 16, reihenfolge: 1 },
                 { auftrag_nr: 'A001', maschine: 2, dauer: 12, reihenfolge: 2 },
-
-                // Заказ A002: Станок Б (10ч) -> Станок В (8ч)
                 { auftrag_nr: 'A002', maschine: 2, dauer: 10, reihenfolge: 1 },
                 { auftrag_nr: 'A002', maschine: 3, dauer: 8, reihenfolge: 2 },
-
-                // Заказ A003: Станок А (20ч)
                 { auftrag_nr: 'A003', maschine: 1, dauer: 20, reihenfolge: 1 },
-
-                // Заказ A004: Станок В (15ч) -> Станок Г (10ч) -> Станок А (8ч)
                 { auftrag_nr: 'A004', maschine: 3, dauer: 15, reihenfolge: 1 },
                 { auftrag_nr: 'A004', maschine: 4, dauer: 10, reihenfolge: 2 },
                 { auftrag_nr: 'A004', maschine: 1, dauer: 8, reihenfolge: 3 }
             ]);
-            console.log('Initial Arbeitsplan data inserted.');
         }
 
     } catch (error) {
@@ -113,11 +129,10 @@ async function createTablesIfNotExist() {
     }
 }
 
-// --- Функции для взаимодействия с данными ---
-
+// CRUD и статистика
 async function getAuftraege() {
     try {
-        return await db('Auftrag').select('*').orderBy('Start');
+        return await getDb()('Auftrag').select('*').orderBy('Start');
     } catch (error) {
         console.error('Error getting Auftraege:', error);
         return [];
@@ -126,18 +141,30 @@ async function getAuftraege() {
 
 async function getMaschinen() {
     try {
-        return await db('Maschine').select('*').orderBy('Nr');
+        return await getDb()('Maschine').select('*').orderBy('Nr');
     } catch (error) {
         console.error('Error getting Maschinen:', error);
         return [];
     }
 }
+async function deleteMaschinen(nr) {
+    const db = getDb();
+
+    try {
+
+
+        return await db("Maschine").where({ Nr: nr }).del();
+
+    } catch (error) {
+        console.error("Error deleting Maschinen:", error);
+        throw error; // пробрасываем для обработки на фронте
+    }
+}
+
 
 async function getArbeitsplaene() {
     try {
-        return await db('Arbeitsplan')
-            .select('*')
-            .orderBy(['auftrag_nr', 'ag_nr']);
+        return await getDb()('Arbeitsplan').select('*').orderBy(['auftrag_nr', 'ag_nr']);
     } catch (error) {
         console.error('Error getting Arbeitsplaene:', error);
         return [];
@@ -146,7 +173,7 @@ async function getArbeitsplaene() {
 
 async function getArbeitsplaeneForAuftrag(auftrag_nr) {
     try {
-        return await db('Arbeitsplan')
+        return await getDb()('Arbeitsplan')
             .where('auftrag_nr', auftrag_nr)
             .select('*')
             .orderBy('ag_nr');
@@ -156,29 +183,42 @@ async function getArbeitsplaeneForAuftrag(auftrag_nr) {
     }
 }
 
-async function addAuftrag(auftrag) {
-    try {
-        return await db('Auftrag').insert(auftrag);
-    } catch (error) {
-        console.error('Error adding Auftrag:', error);
-        throw error;
-    }
-}
+
 
 async function updateAuftrag(auftrag_nr, updates) {
     try {
-        return await db('Auftrag').where({ auftrag_nr }).update(updates);
+        return await getDb()('Auftrag').where({ auftrag_nr }).update(updates);
     } catch (error) {
         console.error('Error updating Auftrag:', error);
         throw error;
     }
 }
 
+
+async function updateArbeitsplan( auftrag_nr, ag_nr, updates) {
+    try {
+        return await getDb()('Arbeitsplan').where({ auftrag_nr, ag_nr }).update(updates);
+    } catch (error) {
+        console.error('Error updating Arbeitsplan:', error);
+        throw error;
+    }
+}
+
+async function deleteArbeitsplan(auftrag_nr, ag_nr) {
+    try {
+        return await db("Arbeitsplan")
+            .where({ auftrag_nr, ag_nr })
+            .del();
+    } catch (error) {
+        console.error('Error updating Arbeitsplan:', error);
+        throw error;
+    }
+}
+
 async function deleteAuftrag(auftrag_nr) {
     try {
-        // Сначала удаляем связанные рабочие планы
+        const db = getDb();
         await db('Arbeitsplan').where({ auftrag_nr }).del();
-        // Затем удаляем сам заказ
         return await db('Auftrag').where({ auftrag_nr }).del();
     } catch (error) {
         console.error('Error deleting Auftrag:', error);
@@ -188,7 +228,7 @@ async function deleteAuftrag(auftrag_nr) {
 
 async function addMaschine(maschine) {
     try {
-        return await db('Maschine').insert(maschine);
+        return await getDb()('Maschine').insert(maschine);
     } catch (error) {
         console.error('Error adding Maschine:', error);
         throw error;
@@ -197,25 +237,44 @@ async function addMaschine(maschine) {
 
 async function updateMaschine(nr, updates) {
     try {
-        return await db('Maschine').where({ Nr: nr }).update(updates);
+        if (!updates || Object.keys(updates).length === 0) {
+            throw new Error('No update fields provided');
+        }
+
+        const result = await getDb()('Maschine').where({ Nr: nr }).update(updates);
+        return result; // обычно возвращает количество затронутых строк
     } catch (error) {
         console.error('Error updating Maschine:', error);
         throw error;
     }
 }
-
 async function addArbeitsplan(arbeitsplan) {
     try {
-        return await db('Arbeitsplan').insert(arbeitsplan);
+        return await getDb()('Arbeitsplan').insert(arbeitsplan);
     } catch (error) {
         console.error('Error adding Arbeitsplan:', error);
         throw error;
     }
 }
 
-// Функция для получения статистики симуляции
+async function getLastAuftragNr() {
+    const last = await getDb()("Auftrag")
+        .orderBy("auftrag_nr", "desc")
+        .first();
+    return last?.auftrag_nr || "A00000";
+}
+
+
+
+async function addAuftrag(data) {
+    return await getDb()("Auftrag").insert(data);
+}
+
+
+
 async function getSimulationStats() {
     try {
+        const db = getDb();
         const auftraegeCount = await db('Auftrag').count('* as count').first();
         const maschinenCount = await db('Maschine').count('* as count').first();
         const arbeitsplaeneCount = await db('Arbeitsplan').count('* as count').first();
@@ -231,6 +290,14 @@ async function getSimulationStats() {
     }
 }
 
+async function closeDatabase() {
+    if (db) {
+        await db.destroy();
+        db = null;
+        console.log('🔌 Соединение с БД уничтожено');
+    }
+}
+
 module.exports = {
     initializeDatabase,
     getAuftraege,
@@ -243,5 +310,11 @@ module.exports = {
     addMaschine,
     updateMaschine,
     addArbeitsplan,
-    getSimulationStats
+    getSimulationStats,
+    closeDatabase,
+    reinitializeDatabase,
+    deleteMaschinen,
+    deleteArbeitsplan,
+    updateArbeitsplan,
+    getLastAuftragNr
 };

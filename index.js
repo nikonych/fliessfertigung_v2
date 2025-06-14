@@ -5,8 +5,10 @@ app.commandLine.appendSwitch("gtk-version", "3");
 const remoteMain = require('@electron/remote/main');
 const {
     initializeDatabase,
+    reinitializeDatabase,
     getAuftraege,
     getMaschinen,
+    deleteMaschinen,
     getArbeitsplaene,
     getArbeitsplaeneForAuftrag,
     addAuftrag,
@@ -18,6 +20,7 @@ const {
     getSimulationStats
 } = require('./db/databaseService.js');
 const fs = require("node:fs");
+const {updateArbeitsplan, deleteArbeitsplan, getLastAuftragNr} = require("./db/databaseService");
 remoteMain.initialize();
 
 function createWindow() {
@@ -77,6 +80,13 @@ function registerIpcHandlers() {
         return result;
     });
 
+    ipcMain.handle('close-db', async () => {
+        const {closeDatabase} = require('./db/databaseService.js');
+        await closeDatabase();
+        return true;
+    });
+
+
     ipcMain.handle('is-db-empty', async () => {
         const dbPath = path.join(app.getPath('userData'), 'manufacturing.db');
         if (!fs.existsSync(dbPath)) return true;
@@ -102,76 +112,58 @@ function registerIpcHandlers() {
         }
     });
 
+
     ipcMain.handle('create-empty-database', async (event, dbPath) => {
-        const Database = require('better-sqlite3');
-        const db = new Database(dbPath);
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS Maschine
-            (
-                Nr
-                TEXT
-                PRIMARY
-                KEY,
-                Bezeichnung
-                TEXT,
-                verf_von
-                INTEGER,
-                verf_bis
-                INTEGER,
-                Kap_Tag
-                INTEGER
+
+        try {
+            const Database = require('better-sqlite3');
+            const db = new Database(dbPath);
+            db.exec(`
+        CREATE TABLE IF NOT EXISTS Maschine (
+                Nr TEXT PRIMARY KEY,
+                Bezeichnung TEXT,
+                verf_von INTEGER,
+                verf_bis INTEGER,
+                Kap_Tag INTEGER
             );
-            CREATE TABLE IF NOT EXISTS Auftrag
-            (
-                auftrag_nr
-                TEXT
-                PRIMARY
-                KEY,
-                Anzahl
-                INTEGER,
-                Start
-                INTEGER
+            
+            CREATE TABLE IF NOT EXISTS Auftrag (
+                auftrag_nr TEXT PRIMARY KEY,
+                Anzahl INTEGER,
+                Start INTEGER
+                -- можно добавить später FOREIGN KEY auf maschine, если нужно
             );
-            CREATE TABLE IF NOT EXISTS Arbeitsplan
-            (
-                auftrag_nr
-                TEXT,
-                ag_nr
-                TEXT,
-                maschine
-                TEXT,
-                dauer
-                INTEGER,
-                PRIMARY
-                KEY
-            (
-                auftrag_nr,
-                ag_nr
-            ),
-                FOREIGN KEY
-            (
-                auftrag_nr
-            ) REFERENCES Auftrag
-            (
-                auftrag_nr
-            ),
-                FOREIGN KEY
-            (
-                maschine
-            ) REFERENCES Maschine
-            (
-                Nr
-            )
-                );
+            
+            CREATE TABLE IF NOT EXISTS Arbeitsplan (
+                auftrag_nr TEXT,
+                ag_nr TEXT,
+                maschine TEXT,
+                dauer INTEGER,
+                PRIMARY KEY (auftrag_nr, ag_nr),
+                FOREIGN KEY (auftrag_nr) REFERENCES Auftrag(auftrag_nr) ON DELETE CASCADE,
+                FOREIGN KEY (maschine) REFERENCES Maschine(Nr) ON DELETE SET NULL
+            );
+
         `);
-        db.close();
-        return '✅ База данных создана успешно';
+            db.close();
+
+            await reinitializeDatabase();
+
+            return '✅ База данных создана успешно';
+        } catch (error) {
+            console.error('Ошибка создания базы данных:', error);
+            throw error;
+        }
     });
 
     ipcMain.handle('import-excel', async (event, filePath) => {
         try {
             const importExcel = require(path.join(__dirname, 'ui', 'importExcelLogic.js'));
             const result = await importExcel(filePath);
+
+            // После импорта переинициализируем базу данных
+            await reinitializeDatabase();
+
             return result;
         } catch (e) {
             console.error('Ошибка импорта Excel:', e);
@@ -179,8 +171,22 @@ function registerIpcHandlers() {
         }
     });
 
+    ipcMain.handle('reinitialize-database', async () => {
+        try {
+            await reinitializeDatabase();
+            return '✅ База данных переинициализирована успешно';
+        } catch (error) {
+            console.error('Ошибка переинициализации базы данных:', error);
+            throw error;
+        }
+    });
+
     ipcMain.handle('delete-db', async () => {
         try {
+            // Сначала закрываем соединение с базой данных
+            const {closeDatabase} = require('./db/databaseService.js');
+            await closeDatabase();
+
             const dbPath = path.join(app.getPath('userData'), 'manufacturing.db');
             if (fs.existsSync(dbPath)) {
                 fs.unlinkSync(dbPath);
@@ -188,6 +194,7 @@ function registerIpcHandlers() {
             } else {
                 console.log('Файл БД не найден, нечего удалять');
             }
+
             return true;
         } catch (err) {
             console.error('Ошибка при удалении БД:', err);
@@ -242,6 +249,10 @@ function registerIpcHandlers() {
         }
     });
 
+    ipcMain.handle('generate-auftrag-nr', async () => {
+        return await getLastAuftragNr();
+    });
+
     ipcMain.handle('add-maschine', async (event, maschine) => {
         try {
             return await addMaschine(maschine);
@@ -278,7 +289,6 @@ function registerIpcHandlers() {
             throw error;
         }
     });
-
     // Удаление данных
     ipcMain.handle('delete-auftrag', async (event, auftrag_nr) => {
         try {
@@ -288,6 +298,36 @@ function registerIpcHandlers() {
             throw error;
         }
     });
+
+
+    ipcMain.handle("update-arbeitsplan", async (event, auftrag_nr, ag_nr, updates) => {
+        try {
+            return await updateArbeitsplan(auftrag_nr, ag_nr, updates);
+        } catch (error) {
+            console.error('IPC Error - update-Arbeitsplan:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle("delete-arbeitsplan", async (event, auftrag_nr, ag_nr) => {
+        try {
+            return await deleteArbeitsplan(auftrag_nr, ag_nr);
+        } catch (error) {
+            console.error('IPC Error - delete-Arbeitsplan:', error);
+            throw error;
+        }
+    });
+
+
+    ipcMain.handle("delete-maschine", async (event, nr) => {
+        try {
+            return await deleteMaschinen(nr);
+        } catch (err) {
+            console.error("Error deleting Maschine:", err);
+            throw err;
+        }
+    });
+
 
     // Статистика
     ipcMain.handle('get-simulation-stats', async () => {

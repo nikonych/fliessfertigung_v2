@@ -36,6 +36,11 @@ window.onload = async () => {
 
                 if (!result.canceled && result.filePaths.length > 0) {
                     const filePath = result.filePaths[0];
+
+                    console.log('Закрываем БД перед удалением...');
+                    await window.electronAPI.closeDb();
+
+
                     console.log('Удаляем старую БД...');
                     await window.electronAPI.deleteDb();
 

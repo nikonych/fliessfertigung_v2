@@ -16,6 +16,21 @@
             color: white;
         }
 
+        .back {
+            float: right;
+            background-color: white;
+            color: #005fa3;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .back:hover {
+            background-color: #f0f0f0;
+        }
+
         .tabs {
             display: flex;
             background-color: #f0f0f0;
@@ -75,6 +90,15 @@
             text-transform: uppercase;
         }
 
+        /* Специальные grid для разных секций */
+        #auftrage .grid-row {
+            grid-template-columns: 1fr 2fr 2fr 1fr 1fr 1fr 2fr;
+        }
+
+        #arbeitsplan .grid-row {
+            grid-template-columns: 1fr 1fr 2fr 1.5fr 1fr 1fr 1.5fr;
+        }
+
         .grid-cell {
             padding: 6px;
             word-break: break-word;
@@ -95,18 +119,148 @@
             margin: 3px;
         }
 
+        .btn.detail {
+            background-color: #28a745;
+            color: white;
+            margin: 3px;
+        }
+
+        .btn.back {
+            background-color: #6c757d;
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        input[type="text"] {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus {
+            border-color: #005fa3;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 95, 163, 0.3);
+        }
+
+        h2 {
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #005fa3;
+        }
+        .modal.hidden {
+            display: none;
+        }
+        .modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 999;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            min-width: 320px;
+            max-width: 400px;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn.primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn.secondary {
+            background-color: #e0e0e0;
+            color: black;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #4caf50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+            z-index: 9999;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .toast.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+
+        .btn.secondary {
+            background-color: #ffdddd;
+            color: #a00000;
+        }
+        .btn.secondary:hover {
+            background-color: #ffcccc;
+        }
 
     </style>
 </head>
 <body>
 
 <header>
-    <h2>Datenübersicht
+    <h2>
+        Datenübersicht
         <button class="back" onclick="window.location.href='home.html'">Zurück</button>
     </h2>
-
 </header>
-
 
 <div class="tabs">
     <div class="tab active" data-tab="maschinen">Maschinen</div>
@@ -130,28 +284,164 @@
 </div>
 
 
+
+
+<div id="modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Maschine bearbeiten</h2>
+        <div class="form-group">
+            <label>Bezeichnung</label>
+            <input type="text" id="edit-bezeichnung" />
+        </div>
+        <div class="form-group">
+            <label>Verfügbar von</label>
+            <input type="date" id="edit-von" />
+        </div>
+        <div class="form-group">
+            <label>Verfügbar bis</label>
+            <input type="date" id="edit-bis" />
+        </div>
+        <div class="form-group">
+            <label>Kapazität pro Tag</label>
+            <input type="number" id="edit-kap" />
+        </div>
+        <div class="modal-actions">
+            <button id="save-btn" class="btn primary">Speichern</button>
+            <button id="cancel-btn" class="btn secondary">Abbrechen</button>
+        </div>
+    </div>
+</div>
+
+
+<div id="auftrag-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Auftrag bearbeiten</h2>
+        <div class="form-group">
+            <label>Auftrag Nr</label>
+            <input type="text" id="edit-auftrag-nr" disabled />
+        </div>
+        <div class="form-group">
+            <label>Anzahl</label>
+            <input type="number" id="edit-anzahl" />
+        </div>
+        <div class="form-group">
+            <label>Startposition</label>
+            <input type="number" id="edit-start" />
+        </div>
+        <div class="modal-actions">
+            <button id="auftrag-save-btn" class="btn primary">Speichern</button>
+            <button id="auftrag-cancel-btn" class="btn secondary">Abbrechen</button>
+        </div>
+    </div>
+</div>
+
+
+<div id="arbeitsplan-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Arbeitsplan bearbeiten</h2>
+        <div class="form-group">
+            <label>Maschine</label>
+            <select id="edit-maschine">
+                <option value="">-- Bitte wählen --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Dauer</label>
+            <input type="number" id="edit-dauer" />
+        </div>
+        <div class="modal-actions">
+            <button id="arbeitsplan-save-btn" class="btn primary">Speichern</button>
+            <button id="arbeitsplan-cancel-btn" class="btn secondary">Abbrechen</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для создания нового Arbeitsplan -->
+<div id="add-ap-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Neuer Arbeitsplan</h2>
+
+        <div class="form-group">
+            <label>Auftrag</label>
+            <select id="new-auftrag-select"></select>
+            <button id="new-auftrag-create" class="btn secondary">+ Neuer Auftrag</button>
+        </div>
+
+        <div class="form-group">
+            <label>AG-Nr (Reihenfolge)</label>
+            <input type="text" id="new-ag-nr" />
+        </div>
+
+        <div class="modal-actions">
+            <button id="add-ap-confirm" class="btn primary">Erstellen</button>
+            <button id="add-ap-cancel" class="btn secondary">Abbrechen</button>
+        </div>
+    </div>
+</div>
+
+
+<div id="toast" class="toast hidden">Gespeichert ✅</div>
+
+
 <script type="module">
+    console.log("🚀 Скрипт daten.html загружается...");
+
+
+    // Проверяем состояние electronAPI при загрузке
+    console.log("🔍 Проверка electronAPI при загрузке:", {
+        exists: !!window.electronAPI,
+        keys: window.electronAPI ? Object.keys(window.electronAPI) : 'undefined'
+    });
+
     import {showMaschinen} from "../ui/maschine.js";
-    import {showAuftrage} from "../ui/auftrag.js";
-    import {showArbeitsplan} from "../ui/arbeitsplan.js";
+    import {showAuftraege} from "../ui/auftraege.js";
+    import {showArbeitsplaene} from "../ui/arbeitsplane.js";
+
+
 
     document.addEventListener("DOMContentLoaded", () => {
+        console.log("🔄 DOM Content Loaded - Starting initialization");
+
+        // Проверяем доступность electronAPI
+        if (!window.electronAPI) {
+            console.error("❌ electronAPI не доступен!");
+            return;
+        }
+
+        console.log("✅ electronAPI доступен:", Object.keys(window.electronAPI));
+
+        // Загружаем данные для активной вкладки
+        console.log("🔄 Загружаем машины...");
         showMaschinen("maschinen-container");
-        // showAuftrage("auftrage-container");
-        // showArbeitsplan("arbeitsplan-container");
 
         const tabs = document.querySelectorAll(".tab");
         const sections = document.querySelectorAll(".section");
 
+        console.log(`📋 Найдено ${tabs.length} вкладок и ${sections.length} секций`);
+
         tabs.forEach(tab => {
             tab.addEventListener("click", () => {
                 const target = tab.getAttribute("data-tab");
+                console.log(`🖱️ Клик по вкладке: ${target}`);
 
                 tabs.forEach(t => t.classList.remove("active"));
                 sections.forEach(s => s.classList.remove("active"));
 
                 tab.classList.add("active");
                 document.getElementById(target).classList.add("active");
+
+                // Загружаем данные при переключении вкладок
+                if (target === "auftrage") {
+                    console.log("🔄 Загружаем заказы...");
+                    showAuftraege("auftrage-container");
+                } else if (target === "arbeitsplan") {
+                    console.log("🔄 Загружаем рабочие планы...");
+                    showArbeitsplaene("arbeitsplan-container");
+                } else if (target === "maschinen") {
+                    console.log("🔄 Перезагружаем машины...");
+                    showMaschinen("maschinen-container");
+                }
             });
         });
     });
