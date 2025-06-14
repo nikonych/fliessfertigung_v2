@@ -22,4 +22,4 @@ function getAuftragList() {
   }
 }
 
-module.exports = { getAuftragList };
+module.exports = getAuftragList;

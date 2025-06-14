@@ -1,17 +1,18 @@
-const {getMaschineList} = require('../db/getMaschinen.js');
+const {ipcRenderer} = require('electron');
 
-export function showMaschinen(containerId) {
-    const {getMaschineList} = require("../db/getMaschinen.js");
+export async function showMaschinen(containerId) {
     const container = document.getElementById(containerId);
     container.innerHTML = "";
 
     let maschinen;
     try {
-        maschinen = getMaschineList();
+        maschinen = await ipcRenderer.invoke('get-maschinen');
+        console.log(maschinen);
     } catch (e) {
         container.innerText = "Fehler beim Laden";
         return;
     }
+
 
     // 🔍 Suchfeld
     const search = document.createElement("input");

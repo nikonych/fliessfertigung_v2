@@ -29,6 +29,7 @@
     "@electron-forge/plugin-fuses": "^7.8.1",
     "@electron/fuses": "^1.8.0",
     "electron": "^36.2.1",
+    "electron-rebuild": "^3.2.9",
     "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1"
   },
@@ -36,6 +37,7 @@
     "@electron/remote": "^2.1.2",
     "better-sqlite3": "^11.10.0",
     "electron-squirrel-startup": "^1.0.1",
+    "knex": "^3.1.0",
     "sql.js": "^1.13.0",
     "xlsx": "^0.18.5"
   }

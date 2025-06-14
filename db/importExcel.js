@@ -3,6 +3,8 @@ import Database from 'better-sqlite3';
 import { Maschine } from './Maschine.js';
 import { Auftrag } from './Auftrag.js';
 import { Arbeitsplan } from './Arbeitsplan.js';
+import path from "path";
+import {app} from "electron";
 
 function excelDateToSerial(dateStr) {
   const excelEpoch = new Date(Date.UTC(1899, 11, 30));
@@ -103,6 +105,6 @@ function importExcelToDatabase(excelPath, dbPath) {
 }
 
 const excelPath = './21_Simulation_Fliessfertigung (2).xlsx';
-const dbPath = './manufacturing.db';
+const dbPath = path.join(app.getPath('userData'), 'manufacturing.db');
 
 importExcelToDatabase(excelPath, dbPath);
