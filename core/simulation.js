@@ -2,9 +2,10 @@
 import {draw, startAnimation, stopAnimation} from "../ui/simulation/renderer.js";
 
 window.simulation = {
+    simulationMinutesPerStep: 1,
     isRunning: false,
-    currentDay: 45000,
-    intervalMs: 60000,
+    currentTimeMinutes: 45000 * 24 * 60, // начни с 45000 дней, пересчитанных в минуты
+    intervalMs: 1000, // По умолчанию 1 секунда (1 минута симуляции за секунду)
     timer: 0,
     auftraegeQueue: [],
     activeTasks: [],
@@ -88,7 +89,7 @@ function addActivity(message) {
 function filterAndLoadActiveAuftraege() {
     window.simulation.auftraegeQueue = window.simulation.auftraege.filter(auftrag => {
         // Загружаем заказы, которые должны начаться до или в текущий день
-        return auftrag.Start <= window.simulation.currentDay;
+        return auftrag.Start <= getCurrentDay();
     });
 }
 
@@ -171,7 +172,8 @@ async function resetSimulation() {
     stopSimulation();
 
     // Сброс состояния симуляции
-    window.simulation.currentDay = 45000;
+    window.simulation.currentTimeMinutes = 45000 * 24 * 60;
+
     window.simulation.activeTasks = [];
     window.simulation.auftraegeQueue = [];
     window.simulation.maschinenStatus = {};
@@ -192,9 +194,21 @@ async function resetSimulation() {
     draw();
 }
 
+// Функция для получения текущей скорости симуляции
+function getCurrentSimulationSpeed() {
+    return window.simulation.simulationMinutesPerStep || 1;
+}
+
+function getCurrentDay() {
+    return Math.floor(window.simulation.currentTimeMinutes / (24 * 60));
+}
+
+
 function simulationStep() {
-    window.simulation.currentDay++;
-    console.log(`📅 Tag ${window.simulation.currentDay}: Simulationsschritt gestartet`);
+    // Увеличиваем виртуальное время
+    window.simulation.currentTimeMinutes += getCurrentSimulationSpeed();
+
+    console.log(`📅 Tag ${getCurrentDay()}: Simulationsschritt gestartet`);
 
     // Завершение активных задач
     window.simulation.activeTasks = window.simulation.activeTasks.filter(task => {
@@ -204,8 +218,13 @@ function simulationStep() {
             return false;
         }
 
-        task.remaining -= maschine.kapTag;
-        console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${task.remaining}h übrig`);
+        // Вычисляем, сколько времени симуляции прошло за один шаг
+        // intervalMs показывает интервал реального времени между шагами
+        // Нужно определить, сколько минут симуляции проходит за шаг
+        const currentSpeed = getCurrentSimulationSpeed(); // минут симуляции за шаг
+
+        task.remaining -= currentSpeed;
+        console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}h übrig`);
 
         if (task.remaining <= 0) {
             // Освобождаем машину
@@ -235,7 +254,7 @@ function simulationStep() {
 
     // Проверяем, есть ли новые заказы для текущего дня
     const newAuftraege = window.simulation.auftraege.filter(auftrag =>
-        auftrag.Start === window.simulation.currentDay &&
+        auftrag.Start === getCurrentDay() &&
         !window.simulation.auftraegeQueue.find(existing => existing.auftrag_nr === auftrag.auftrag_nr)
     );
 
@@ -283,7 +302,7 @@ function simulationStep() {
             window.simulation.activeTasks.push({
                 auftrag_nr: auftrag.auftrag_nr,
                 maschine: machineId,
-                remaining: currentOperation.dauer,
+                remaining: currentOperation.dauer * 60,
                 operation: auftragStatus.currentStep + 1 // Для отображения
             });
 
@@ -328,7 +347,7 @@ function initMaschinen(maschinen) {
 
     for (const m of maschinen) {
         // Проверяем, доступна ли машина в текущий день
-        const isAvailable = window.simulation.currentDay >= m.verf_von && window.simulation.currentDay <= m.verf_bis;
+        const isAvailable = getCurrentDay() >= m.verf_von && getCurrentDay() <= m.verf_bis;
 
         window.simulation.maschinenStatus[m.Nr] = {
             frei: isAvailable,
@@ -352,15 +371,15 @@ function updateMachineUtilization() {
     Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
         const machine = window.simulation.maschinenStatus[machineId];
         const utilization = window.simulation.statistics.machineUtilization[machineId];
-        
+
         if (utilization) {
             utilization.totalTime++;
-            
+
             if (!machine.frei) {
                 utilization.workingTime++;
             }
-            
-            utilization.utilization = utilization.totalTime > 0 ? 
+
+            utilization.utilization = utilization.totalTime > 0 ?
                 (utilization.workingTime / utilization.totalTime * 100).toFixed(1) : 0;
         }
     });
@@ -383,14 +402,20 @@ if (typeof document !== 'undefined') {
         if (speedSlider) {
             speedSlider.addEventListener("change", (e) => {
                 const value = parseInt(e.target.value);
-                window.simulation.intervalMs = value * 1000;
-                console.log(`⚙️ Simulationsintervall auf ${value} Min (→ ${window.simulation.intervalMs} ms) gesetzt`);
+                window.simulation.simulationMinutesPerStep = value;
 
-                if (window.simulation.isRunning) {
-                    stopSimulation();
-                    startSimulation();
+                let timeLabel;
+                if (value < 60) {
+                    timeLabel = `${value} Min`;
+                } else if (value < 1440) {
+                    timeLabel = `${Math.floor(value / 60)} Std`;
+                } else {
+                    timeLabel = `${Math.floor(value / 1440)} Tag`;
                 }
+
+                console.log(`⚙️ Simulationsgeschwindigkeit: ${timeLabel} pro Sekunde реального времени`);
             });
+
         }
 
         if (startBtn) startBtn.addEventListener("click", startSimulation);
