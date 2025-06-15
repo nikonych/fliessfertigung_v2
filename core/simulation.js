@@ -28,7 +28,13 @@ window.simulation = {
     statistics: {
         completedTasks: 0,
         totalProcessingTime: 0,
-        machineUtilization: {}
+        machineUtilization: {},
+        // НОВЫЕ поля для детальной статистики
+        orderStatistics: {}, // Статистика по каждому заказу
+        machineIdleTime: {}, // Время простоя каждой машины
+        bufferStatistics: {}, // Статистика буферных складов
+        totalSimulationTime: 0,
+        systemStartTime: null
     }
 };
 
@@ -109,12 +115,35 @@ function initAuftraegeStatus() {
         const arbeitsplaene = getArbeitsplaeneFor(auftrag.auftrag_nr)
             .sort((a, b) => a.reihenfolge - b.reihenfolge);
 
+        const currentTime = window.simulation.currentTimeMinutes;
+
         window.simulation.auftraegeStatus[auftrag.auftrag_nr] = {
-            currentStep: 0, // Текущий шаг в рабочем плане
+            currentStep: 0,
             arbeitsplaene: arbeitsplaene,
             completed: false,
-            waiting: false, // Ждет ли заказ освобождения машины
-            anzahl: auftrag.Anzahl || 1 // Количество товара для обработки
+            waiting: false,
+            anzahl: auftrag.Anzahl || 1,
+
+            // НОВЫЕ ПОЛЯ для статистики
+            enteredSystemTime: currentTime,
+            waitingStartTime: null,
+            totalWaitingTime: 0,
+            currentOperationStartTime: null,
+            operationHistory: []
+        };
+
+// Инициализируем статистику заказа
+        window.simulation.statistics.orderStatistics[auftrag.auftrag_nr] = {
+            startTime: null,
+            endTime: null,
+            totalLeadTime: 0,
+            operations: [],
+            totalProcessingTime: 0,
+            totalWaitingTime: 0,
+            quantity: auftrag.Anzahl || 1,
+            machinesUsed: [],
+            operationHistory: [],
+            enteredSystemTime: currentTime
         };
     }
 }
@@ -359,15 +388,20 @@ function simulationStep() {
             if ((!isWorkingTime || !isAvailable) && hasActiveTask) {
                 if (!activeTask.paused) {
                     activeTask.paused = true;
+                    activeTask.pauseStartTime = window.simulation.currentTimeMinutes; // ДОБАВИТЬ
                     const reason = !isAvailable ? 'машина недоступна' : 'конец рабочего дня';
                     addActivity(`Машина ${machineId} остановлена (${reason})`);
                     console.log(`⏸️ Машина ${machineId} приостановила работу: ${reason}`);
                 }
-            }
-            // Если машина должна возобновить работу
-            else if (isWorkingTime && isAvailable && hasActiveTask) {
+            } else if (isWorkingTime && isAvailable && hasActiveTask) {
                 if (activeTask.paused) {
                     activeTask.paused = false;
+                    // ДОБАВИТЬ подсчет времени паузы
+                    if (activeTask.pauseStartTime) {
+                        const pauseDuration = window.simulation.currentTimeMinutes - activeTask.pauseStartTime;
+                        activeTask.pausedTotalTime = (activeTask.pausedTotalTime || 0) + pauseDuration;
+                        activeTask.pauseStartTime = null;
+                    }
                     addActivity(`Машина ${machineId} возобновила работу`);
                     console.log(`▶️ Машина ${machineId} возобновила работу`);
                 }
@@ -397,6 +431,11 @@ function simulationStep() {
             console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}min übrig (${task.processedUnits}/${task.anzahl} шт.)`);
 
             if (task.remaining <= 0) {
+                const currentTime = window.simulation.currentTimeMinutes;
+                const auftragStatus = window.simulation.auftraegeStatus[task.auftrag_nr];
+                const orderStats = window.simulation.statistics.orderStatistics[task.auftrag_nr];
+                const machineStats = window.simulation.statistics.machineUtilization[task.maschine];
+
                 // Освобождаем машину
                 maschine.frei = true;
                 maschine.hasUnfinishedTask = false;
@@ -405,25 +444,59 @@ function simulationStep() {
                 const machineData = window.simulation.maschinen.find(m => m.Nr == task.maschine);
                 maschine.canStartNewTask = isMachineAvailable(machineData) && isMachineWorkingTime(machineData);
 
+                // ЗАПИСЫВАЕМ СТАТИСТИКУ ОПЕРАЦИИ
+                const operationDuration = currentTime - task.startTime;
+                const processingTime = task.totalDuration; // Чистое время обработки
+
+                const operationRecord = {
+                    machineId: task.maschine,
+                    operationNumber: task.operation,
+                    startTime: task.startTime,
+                    endTime: currentTime,
+                    processingTime: processingTime,
+                    waitingTimeBefore: task.waitingTimeBefore,
+                    quantity: task.anzahl,
+                    pausedTime: task.pausedTotalTime
+                };
+
+                // Добавляем в статистику заказа
+                orderStats.operations.push(operationRecord);
+                orderStats.totalProcessingTime += processingTime;
+                orderStats.totalWaitingTime += task.waitingTimeBefore;
+
+                // Обновляем статистику машины
+                machineStats.operationsCompleted++;
+                machineStats.totalPartsProcessed += task.anzahl;
+
                 console.log(`✅ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} abgeschlossen (${task.anzahl} шт. обработано)`);
                 addActivity(`Операция заказа ${task.auftrag_nr} завершена на машине ${task.maschine} (${task.anzahl} шт.)`);
 
-                // Обновляем состояние заказа - переходим к следующему шагу
-                const auftragStatus = window.simulation.auftraegeStatus[task.auftrag_nr];
+                // Обновляем состояние заказа
                 if (auftragStatus) {
                     auftragStatus.currentStep++;
                     auftragStatus.waiting = false;
+                    auftragStatus.currentOperationStartTime = null;
 
                     // Проверяем, завершен ли весь заказ
                     if (auftragStatus.currentStep >= auftragStatus.arbeitsplaene.length) {
                         auftragStatus.completed = true;
+
+                        // ФИНАЛЬНАЯ СТАТИСТИКА ЗАКАЗА
+                        orderStats.endTime = currentTime;
+                        orderStats.totalLeadTime = currentTime - orderStats.startTime;
+                        orderStats.totalWaitingTime = auftragStatus.totalWaitingTime;
+
                         console.log(`🎉 Заказ ${task.auftrag_nr} полностью завершен! (${auftragStatus.anzahl} шт.)`);
+                        console.log(`📊 Статистика заказа ${task.auftrag_nr}:`, orderStats);
                         addActivity(`Заказ ${task.auftrag_nr} полностью завершен (${auftragStatus.anzahl} шт.)`);
                         window.simulation.statistics.completedTasks++;
+                    } else {
+                        // Заказ переходит к следующей операции - начинается ожидание
+                        auftragStatus.waitingStartTime = currentTime;
                     }
                 }
 
-                return false; // Удаляем выполненную задачу
+                return false;
             }
             return true;
         });
@@ -442,12 +515,35 @@ function simulationStep() {
                 const arbeitsplaene = getArbeitsplaeneFor(auftrag.auftrag_nr)
                     .sort((a, b) => a.reihenfolge - b.reihenfolge);
 
+                const currentTime = window.simulation.currentTimeMinutes;
+
                 window.simulation.auftraegeStatus[auftrag.auftrag_nr] = {
                     currentStep: 0,
                     arbeitsplaene: arbeitsplaene,
                     completed: false,
                     waiting: false,
-                    anzahl: auftrag.Anzahl || 1
+                    anzahl: auftrag.Anzahl || 1,
+
+                    // НОВЫЕ ПОЛЯ для статистики
+                    enteredSystemTime: currentTime,
+                    waitingStartTime: null,
+                    totalWaitingTime: 0,
+                    currentOperationStartTime: null,
+                    operationHistory: []
+                };
+
+// Инициализируем статистику заказа
+                window.simulation.statistics.orderStatistics[auftrag.auftrag_nr] = {
+                    startTime: null,
+                    endTime: null,
+                    totalLeadTime: 0,
+                    operations: [],
+                    totalProcessingTime: 0,
+                    totalWaitingTime: 0,
+                    quantity: auftrag.Anzahl || 1,
+                    machinesUsed: [],
+                    operationHistory: [],
+                    enteredSystemTime: currentTime
                 };
             }
 
@@ -500,17 +596,47 @@ function simulationStep() {
                 machineStatus.hasUnfinishedTask = true;
                 machineStatus.canStartNewTask = false;
 
+                const currentTime = window.simulation.currentTimeMinutes;
+                const auftragStatus = window.simulation.auftraegeStatus[nextOrder.auftrag_nr];
+                const orderStats = window.simulation.statistics.orderStatistics[nextOrder.auftrag_nr];
+
+// Рассчитываем время ожидания
+                let waitingTime = 0;
+                if (auftragStatus.waitingStartTime) {
+                    waitingTime = currentTime - auftragStatus.waitingStartTime;
+                    auftragStatus.totalWaitingTime += waitingTime;
+                    auftragStatus.waitingStartTime = null;
+                }
+
+// Устанавливаем время начала операции
+                auftragStatus.currentOperationStartTime = currentTime;
+
+// Если это первая операция, устанавливаем startTime
+                if (orderStats.startTime === null) {
+                    orderStats.startTime = currentTime;
+                }
+
                 window.simulation.activeTasks.push({
                     auftrag_nr: nextOrder.auftrag_nr,
                     maschine: machineId,
                     remaining: totalDuration,
-                    operation: window.simulation.auftraegeStatus[nextOrder.auftrag_nr].currentStep + 1,
+                    operation: auftragStatus.currentStep + 1,
                     paused: false,
                     anzahl: nextOrder.anzahl,
                     dauerPerUnit: nextOrder.operation.dauer,
                     processedUnits: 0,
-                    totalDuration: totalDuration
+                    totalDuration: totalDuration,
+
+                    // НОВЫЕ ПОЛЯ для статистики
+                    startTime: currentTime,
+                    waitingTimeBefore: waitingTime,
+                    pausedTotalTime: 0
                 });
+
+// Добавляем машину в список использованных
+                if (!orderStats.machinesUsed.includes(machineId)) {
+                    orderStats.machinesUsed.push(machineId);
+                }
 
                 console.log(`🚀 Из очереди запущен заказ ${nextOrder.auftrag_nr} на машине ${machineId}`);
             }
@@ -593,9 +719,15 @@ function initMaschinen(maschinen) {
             totalTime: 0,
             workingTime: 0,
             availableTime: 0,
-            utilization: 0
-        };
+            utilization: 0,
 
+            // НОВЫЕ ПОЛЯ
+            idleTime: 0,
+            unavailableTime: 0,
+            operationsCompleted: 0,
+            totalPartsProcessed: 0,
+            utilizationHistory: []
+        };
         const currentDate = getCurrentDate().toISOString().split('T')[0];
         const currentTime = `${Math.floor(getCurrentTimeInDay() / 60)}:${String(getCurrentTimeInDay() % 60).padStart(2, '0')}`;
 
@@ -610,21 +742,38 @@ function updateMachineUtilization() {
         const utilization = window.simulation.statistics.machineUtilization[machineId];
 
         if (utilization && machineData) {
-            const isWorkingTime = isMachineWorkingTimeAndAvailable(machineData);
+            const isAvailable = isMachineAvailable(machineData);
+            const isWorkingTime = isMachineWorkingTime(machineData);
+            const isWorkingTimeAndAvailable = isAvailable && isWorkingTime;
 
-            if (isWorkingTime) {
+            if (isWorkingTimeAndAvailable) {
                 utilization.availableTime++;
 
                 if (!machine.frei) {
                     utilization.workingTime++;
+                } else {
+                    // НОВОЕ: машина доступна, в рабочее время, но простаивает
+                    utilization.idleTime++;
                 }
+            } else if (!isAvailable) {
+                // НОВОЕ: машина недоступна по датам
+                utilization.unavailableTime++;
             }
 
             utilization.totalTime++;
 
-            // Рассчитываем использование относительно доступного времени
+            // Обновленный расчет утилизации
             utilization.utilization = utilization.availableTime > 0 ?
                 (utilization.workingTime / utilization.availableTime * 100).toFixed(1) : 0;
+
+            // НОВОЕ: сохраняем историю загрузки (каждые 60 минут)
+            if (window.simulation.currentTimeMinutes % 60 === 0) {
+                utilization.utilizationHistory.push({
+                    time: window.simulation.currentTimeMinutes,
+                    utilization: parseFloat(utilization.utilization),
+                    isWorking: !machine.frei && isWorkingTimeAndAvailable
+                });
+            }
         }
     });
 }
@@ -668,6 +817,59 @@ if (typeof document !== 'undefined') {
     });
 }
 
+// НОВЫЕ ФУНКЦИИ ДЛЯ АНАЛИЗА СТАТИСТИКИ
+
+function getOrderStatistics(auftrag_nr) {
+    return window.simulation.statistics.orderStatistics[auftrag_nr];
+}
+
+function getMachineEfficiency(machineId) {
+    const stats = window.simulation.statistics.machineUtilization[machineId];
+    if (!stats) return null;
+
+    return {
+        utilization: parseFloat(stats.utilization),
+        operationsCompleted: stats.operationsCompleted,
+        totalPartsProcessed: stats.totalPartsProcessed,
+        idleTime: stats.idleTime,
+        workingTime: stats.workingTime,
+        efficiency: stats.totalPartsProcessed / Math.max(1, stats.availableTime)
+    };
+}
+
+function getAverageLeadTime() {
+    const completedOrders = Object.values(window.simulation.statistics.orderStatistics)
+        .filter(order => order.endTime !== null);
+
+    if (completedOrders.length === 0) return 0;
+
+    const totalLeadTime = completedOrders.reduce((sum, order) => sum + order.totalLeadTime, 0);
+    return totalLeadTime / completedOrders.length;
+}
+
+function exportStatistics() {
+    return {
+        simulation: {
+            totalTime: window.simulation.currentTimeMinutes,
+            completedOrders: window.simulation.statistics.completedTasks,
+            averageLeadTime: getAverageLeadTime()
+        },
+        orders: window.simulation.statistics.orderStatistics,
+        machines: Object.keys(window.simulation.statistics.machineUtilization).map(id => ({
+            id: parseInt(id),
+            ...getMachineEfficiency(id)
+        }))
+    };
+}
+
+function logDetailedStatistics() {
+    console.log("📊 === ДЕТАЛЬНАЯ СТАТИСТИКА ===");
+    console.log("Заказы:", window.simulation.statistics.orderStatistics);
+    console.log("Машины:", window.simulation.statistics.machineUtilization);
+    console.log("Экспорт:", exportStatistics());
+    console.log("================================");
+}
+
 // Экспортируем функции для использования в других модулях
 export {
     loadInitialData,
@@ -681,7 +883,14 @@ export {
     isMachineWorkingTime,
     getCurrentDate,
     isMachineAvailable,
-    isMachineWorkingTimeAndAvailable
+    isMachineWorkingTimeAndAvailable,
+
+    // НОВЫЕ ФУНКЦИИ СТАТИСТИКИ
+    getOrderStatistics,
+    getMachineEfficiency,
+    getAverageLeadTime,
+    exportStatistics,
+    logDetailedStatistics
 };
 
 // Автоматическая инициализация при загрузке (если не в модульной среде)

@@ -372,7 +372,6 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
     const size = LAYOUT.machineSize;
 
     const machineObj = simulation.maschinen?.find(m => m.Nr == machineNr);
-    console.log(machineObj)
 
     // Получаем дополнительную информацию для точного определения статуса
     const isAvailable = machineObj ? window.isMachineAvailable(machineObj) : false;
