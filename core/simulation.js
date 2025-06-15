@@ -129,7 +129,8 @@ function initAuftraegeStatus() {
             waitingStartTime: null,
             totalWaitingTime: 0,
             currentOperationStartTime: null,
-            operationHistory: []
+            operationHistory: [],
+            bufferEntryTime: null,
         };
 
 // Инициализируем статистику заказа
@@ -197,6 +198,9 @@ function startSimulation() {
 
     window.simulation.isRunning = true;
     window.simulation.startTime = Date.now();
+    if (!window.simulation.statistics.systemStartTime) {
+        window.simulation.statistics.systemStartTime = window.simulation.currentTimeMinutes;
+    }
     window.simulation.timer = setInterval(simulationStep, window.simulation.intervalMs);
 
     addActivity("Симуляция запущена");
@@ -229,7 +233,12 @@ async function resetSimulation() {
     window.simulation.statistics = {
         completedTasks: 0,
         totalProcessingTime: 0,
-        machineUtilization: {}
+        machineUtilization: {},
+        orderStatistics: {},
+        machineIdleTime: {},
+        bufferStatistics: {}, // ДОБАВИТЬ
+        totalSimulationTime: 0,
+        systemStartTime: null
     };
 
     // Перезагружаем данные
@@ -351,6 +360,7 @@ function simulationStep() {
     while (remainingTime > 0) {
         // Определяем размер текущего шага
         const currentStepSize = Math.min(remainingTime, maxStepSize);
+        window.simulation.statistics.totalSimulationTime += currentStepSize;
 
         // Увеличиваем виртуальное время на текущий шаг
         window.simulation.currentTimeMinutes += currentStepSize;
@@ -382,8 +392,7 @@ function simulationStep() {
             machineStatus.verfuegbar = isAvailable;
             machineStatus.hasUnfinishedTask = hasActiveTask;
             machineStatus.waitingForWorkingTime = hasActiveTask && isAvailable && !isWorkingTime;
-            machineStatus.canStartNewTask = isAvailable && isWorkingTime && machineStatus.frei;
-
+            machineStatus.canStartNewTask = isAvailable && isWorkingTime && machineStatus.frei; // ДОБАВИТЬ && machineStatus.frei
             // Логика приостановки/возобновления задач
             if ((!isWorkingTime || !isAvailable) && hasActiveTask) {
                 if (!activeTask.paused) {
@@ -441,6 +450,21 @@ function simulationStep() {
                 maschine.hasUnfinishedTask = false;
                 maschine.waitingForWorkingTime = false;
 
+                // Если это НЕ последняя операция, заказ идет в буфер следующей машины
+                if (auftragStatus.currentStep < auftragStatus.arbeitsplaene.length - 1) {
+                    const nextOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep + 1];
+                    const nextMachineId = nextOperation.maschine;
+                    const nextBuffer = window.simulation.statistics.bufferStatistics[nextMachineId];
+                    if (nextBuffer) {
+                        nextBuffer.orderHistory.push({
+                            auftrag_nr: task.auftrag_nr,
+                            entryTime: currentTime,
+                            exitTime: null,
+                            quantity: task.anzahl
+                        });
+                    }
+                }
+
                 const machineData = window.simulation.maschinen.find(m => m.Nr == task.maschine);
                 maschine.canStartNewTask = isMachineAvailable(machineData) && isMachineWorkingTime(machineData);
 
@@ -490,6 +514,7 @@ function simulationStep() {
                         console.log(`📊 Статистика заказа ${task.auftrag_nr}:`, orderStats);
                         addActivity(`Заказ ${task.auftrag_nr} полностью завершен (${auftragStatus.anzahl} шт.)`);
                         window.simulation.statistics.completedTasks++;
+                        window.simulation.statistics.totalProcessingTime += processingTime;
                     } else {
                         // Заказ переходит к следующей операции - начинается ожидание
                         auftragStatus.waitingStartTime = currentTime;
@@ -587,7 +612,15 @@ function simulationStep() {
 
             // Если машина может начать новую задачу и в очереди есть заказы
             if (machineStatus.canStartNewTask && machineStatus.queue.length > 0) {
-                const nextOrder = machineStatus.queue.shift(); // Берем первый из очереди (FIFO)
+                const nextOrder = machineStatus.queue[0]; // НЕ удаляем из очереди пока
+
+                // ДОБАВИТЬ: Проверяем, свободна ли машина
+                if (!machineStatus.frei) {
+                    // Машина занята, заказ остается в очереди/буфере
+                    return; // или continue для следующей машины
+                }
+
+                machineStatus.queue.shift(); // Берем первый из очереди (FIFO)
 
                 // Запускаем задачу
                 const totalDuration = nextOrder.anzahl * nextOrder.operation.dauer;
@@ -614,6 +647,39 @@ function simulationStep() {
 // Если это первая операция, устанавливаем startTime
                 if (orderStats.startTime === null) {
                     orderStats.startTime = currentTime;
+                }
+
+                // Проверяем буфер только если это НЕ первая операция
+                const currentBuffer = window.simulation.statistics.bufferStatistics[machineId];
+                let canStartDueToBuffer = true;
+
+                // Отмечаем выход из буфера (если заказ был в буфере)
+                if (auftragStatus.currentStep > 0) {
+                    const currentBuffer = window.simulation.statistics.bufferStatistics[machineId];
+                    const orderInBuffer = currentBuffer.orderHistory.find(
+                        item => item.auftrag_nr === nextOrder.auftrag_nr && item.exitTime === null
+                    );
+                    if (orderInBuffer) {
+                        orderInBuffer.exitTime = currentTime;
+                    }
+                } else {
+                    // Если это первая операция, тоже записываем "вход" в систему
+                    const currentBuffer = window.simulation.statistics.bufferStatistics[machineId];
+                    currentBuffer.orderHistory.push({
+                        auftrag_nr: nextOrder.auftrag_nr,
+                        entryTime: currentTime,
+                        exitTime: currentTime, // сразу обрабатывается
+                        quantity: nextOrder.anzahl
+                    });
+                }
+
+// Только если буфер позволяет, запускаем задачу
+                if (!canStartDueToBuffer) return;
+
+                if (auftragStatus.bufferEntryTime) {
+                    const bufferTime = currentTime - auftragStatus.bufferEntryTime;
+                    console.log(`📦 Заказ ${nextOrder.auftrag_nr} находился в буфере ${bufferTime} минут`);
+                    auftragStatus.bufferEntryTime = null; // ДОБАВИТЬ
                 }
 
                 window.simulation.activeTasks.push({
@@ -704,6 +770,8 @@ function initMaschinen(maschinen) {
         const isAvailable = isMachineAvailable(m);
         const isWorkingTime = isAvailable && isMachineWorkingTime(m);
 
+        // Для каждой машины создать буферную статистику
+
         window.simulation.maschinenStatus[m.Nr] = {
             frei: true, // Изначально все машины свободны
             kapTag: m.Kap_Tag,
@@ -727,6 +795,10 @@ function initMaschinen(maschinen) {
             operationsCompleted: 0,
             totalPartsProcessed: 0,
             utilizationHistory: []
+        };
+
+        window.simulation.statistics.bufferStatistics[m.Nr] = {
+            orderHistory: [], // ЗАМЕНИТЬ все поля на это
         };
         const currentDate = getCurrentDate().toISOString().split('T')[0];
         const currentTime = `${Math.floor(getCurrentTimeInDay() / 60)}:${String(getCurrentTimeInDay() % 60).padStart(2, '0')}`;
@@ -777,6 +849,7 @@ function updateMachineUtilization() {
         }
     });
 }
+
 
 // Инициализация при загрузке модуля
 async function initialize() {

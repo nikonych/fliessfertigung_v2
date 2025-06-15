@@ -203,6 +203,147 @@
                 padding: 10px 16px;
             }
         }
+
+        #datetime-display .status {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status.running {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4CAF50;
+        }
+
+        .status.paused {
+            background: rgba(255, 152, 0, 0.3);
+            color: #FF9800;
+        }
+
+        .status.stopped {
+            background: rgba(244, 67, 54, 0.3);
+            color: #F44336;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 16px;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .close:hover {
+            opacity: 1;
+        }
+
+        .modal-body {
+            padding: 20px 30px;
+        }
+
+        .stat-section {
+            margin-bottom: 25px;
+        }
+
+        .stat-section h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #fff;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 8px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-item .label {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .stat-item .value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .stat-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .stat-table th, .stat-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-table th {
+            background: rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+        }
+
+        .stat-table tbody tr:nth-child(even) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 
@@ -214,6 +355,7 @@
     <div class="date" id="current-date">Загрузка...</div>
     <div class="time" id="current-time">--:--</div>
     <div class="day-info" id="day-info">День 0</div>
+    <div class="status" id="simulation-status">Остановлена</div>
 </div>
 
 <div id="controls">
@@ -237,58 +379,590 @@
             <option value="2880">48 Std</option>
             <option value="5760">96 Std</option>
         </select>
+        <button id="statistic">Statistic</button>
     </div>
 </div>
 
 <canvas id="canvas"></canvas>
 
+<div id="statisticsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Статистика симуляции</h2>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body" id="statisticsContent">
+            <!-- Содержимое будет генерироваться JavaScript -->
+        </div>
+    </div>
+</div>
+
 <script type="module">
-// Функции для работы с датой и временем
-function updateDateTime() {
-    if (!window.simulation) return;
+    // Функции для работы с датой и временем
+    function updateDateTime() {
+        if (!window.simulation) return;
 
-    const simulation = window.simulation;
-    const totalMinutes = simulation.currentTimeMinutes || 0;
+        const simulation = window.simulation;
+        const totalMinutes = simulation.currentTimeMinutes || 0;
 
-    // Вычисляем дни, часы и минуты
-    const days = Math.floor(totalMinutes / (24 * 60));
-    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-    const minutes = totalMinutes % 60;
+        // Вычисляем дни, часы и минуты
+        const days = Math.floor(totalMinutes / (24 * 60));
+        const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+        const minutes = totalMinutes % 60;
 
-    // Начальная дата (например, 1 января 2025)
-    const startDate = new Date(2022, 0, 0); // месяц 0 = январь
-    const currentDate = new Date(startDate);
-    currentDate.setDate(startDate.getDate() + days);
+        // Начальная дата (например, 1 января 2025)
+        const startDate = new Date(2022, 0, 0);
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + days);
 
-    // Форматируем дату
-    const dateOptions = {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    };
-    const formattedDate = currentDate.toLocaleDateString('de-DE', dateOptions);
+        // Форматируем дату
+        const dateOptions = {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        };
+        const formattedDate = currentDate.toLocaleDateString('de-DE', dateOptions);
 
-    // Форматируем время
-    const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        // Форматируем время
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 
-    // Обновляем элементы
-    document.getElementById('current-date').textContent = formattedDate;
-    document.getElementById('current-time').textContent = timeString;
-    document.getElementById('day-info').textContent = `Симуляционный день ${days - 730}`;
+        // Обновляем элементы
+        document.getElementById('current-date').textContent = formattedDate;
+        document.getElementById('current-time').textContent = timeString;
+        document.getElementById('day-info').textContent = `Симуляционный день ${days - 730}`;
 
-}
+        // Обновляем статус симуляции
+        const statusElement = document.getElementById('simulation-status');
+        if (simulation.isRunning) {
+            statusElement.textContent = 'Запущена';
+            statusElement.className = 'status running';
+        } else if (simulation.isPaused) {
+            statusElement.textContent = 'Пауза';
+            statusElement.className = 'status paused';
+        } else {
+            statusElement.textContent = 'Остановлена';
+            statusElement.className = 'status stopped';
+        }
+    }
 
-// Обновляем каждую секунду
-setInterval(updateDateTime, 1000);
+    // Обновляем каждую секунду
+    setInterval(updateDateTime, 1000);
 
-// Обновляем сразу при загрузке
-document.addEventListener('DOMContentLoaded', () => {
-    updateDateTime();
-});
+    // Обновляем сразу при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
+        updateDateTime();
+    });
 
-// Подключаем к глобальному обновлению симуляции
-window.addEventListener('simulationUpdate', updateDateTime);
+    // Подключаем к глобальному обновлению симуляции
+    window.addEventListener('simulationUpdate', updateDateTime);
+
+    // Функция для отображения статистики
+    function showStatistics() {
+        if (!window.simulation || !window.simulation.statistics) {
+            console.error('Статистика симуляции недоступна');
+            return;
+        }
+
+        const modal = document.getElementById('statisticsModal');
+        const content = document.getElementById('statisticsContent');
+        const stats = window.simulation.statistics;
+
+        content.innerHTML = generateStatisticsHTML(stats);
+        modal.style.display = 'block';
+    }
+
+    function calculateFillPercentage(orderHistory) {
+        if (!orderHistory || orderHistory.length === 0) return 0;
+
+        // Сортируем заказы по времени входа
+        const sortedOrders = orderHistory.sort((a, b) => a.entryTime - b.entryTime);
+
+        // Получаем временной диапазон
+        const startTime = sortedOrders[0].entryTime;
+        const endTime = Math.max(...sortedOrders.map(order => order.exitTime || Date.now()));
+        const totalTime = endTime - startTime;
+
+        if (totalTime === 0) return 0;
+
+        let filledTime = 0;
+        let events = [];
+
+        // Создаем события входа и выхода
+        sortedOrders.forEach(order => {
+            events.push({time: order.entryTime, type: 'entry'});
+            if (order.exitTime) {
+                events.push({time: order.exitTime, type: 'exit'});
+            }
+        });
+
+        // Сортируем события по времени
+        events.sort((a, b) => a.time - b.time);
+
+        let currentLevel = 0;
+        let lastTime = startTime;
+
+        // Подсчитываем время когда буфер был заполнен
+        events.forEach(event => {
+            if (currentLevel > 0) {
+                filledTime += event.time - lastTime;
+            }
+
+            if (event.type === 'entry') {
+                currentLevel++;
+            } else {
+                currentLevel--;
+            }
+
+            lastTime = event.time;
+        });
+
+        // Добавляем время до конца если буфер все еще заполнен
+        if (currentLevel > 0) {
+            filledTime += endTime - lastTime;
+        }
+
+        return (filledTime / totalTime) * 100;
+    }
+
+    function countFillOperations(orderHistory) {
+        if (!orderHistory || orderHistory.length === 0) return 0;
+
+        // Количество операций заполнения = количество входящих заказов
+        return orderHistory.length;
+    }
+
+    function countEmptyOperations(orderHistory) {
+        if (!orderHistory || orderHistory.length === 0) return 0;
+
+        // Количество операций опустошения = количество завершенных заказов
+        return orderHistory.filter(order => order.exitTime !== null).length;
+    }
+
+    function calculateBufferIdleTime(orderHistory) {
+        if (!orderHistory || orderHistory.length === 0) return 0;
+
+        // Сортируем заказы по времени входа
+        const sortedOrders = orderHistory.sort((a, b) => a.entryTime - b.entryTime);
+
+        let events = [];
+
+        // Создаем события входа и выхода
+        sortedOrders.forEach(order => {
+            events.push({time: order.entryTime, type: 'entry'});
+            if (order.exitTime) {
+                events.push({time: order.exitTime, type: 'exit'});
+            }
+        });
+
+        // Сортируем события по времени
+        events.sort((a, b) => a.time - b.time);
+
+        let idleTime = 0;
+        let currentLevel = 0;
+        let lastTime = events[0]?.time || 0;
+
+        // Считаем время простоя (когда буфер пустой)
+        events.forEach(event => {
+            if (currentLevel === 0) {
+                // Буфер был пустой, добавляем время простоя
+                idleTime += event.time - lastTime;
+            }
+
+            if (event.type === 'entry') {
+                currentLevel++;
+            } else {
+                currentLevel--;
+            }
+
+            lastTime = event.time;
+        });
+
+        // Конвертируем из минут в минуты (ваши времена уже в минутах)
+        return Math.round(idleTime);
+    }
+
+    function calculateOrderBufferTimes(machineStats) {
+        const orderBufferTimes = {};
+
+        // Проходим по всем машинам
+        Object.keys(machineStats).forEach(machineId => {
+            const machine = machineStats[machineId];
+
+            if (machine.orderHistory) {
+                machine.orderHistory.forEach(order => {
+                    const orderId = order.auftrag_nr;
+
+                    // Инициализируем объект заказа если его нет
+                    if (!orderBufferTimes[orderId]) {
+                        orderBufferTimes[orderId] = {
+                            totalQuantity: order.quantity,
+                            bufferTimes: {},
+                            totalBufferTime: 0,
+                            machineSequence: []
+                        };
+                    }
+
+                    // Рассчитываем время в буфере для этой машины
+                    const bufferTime = order.exitTime ?
+                        (order.exitTime - order.entryTime) :
+                        0; // Если заказ еще не завершен
+
+                    orderBufferTimes[orderId].bufferTimes[machineId] = bufferTime;
+                    orderBufferTimes[orderId].totalBufferTime += bufferTime;
+                    orderBufferTimes[orderId].machineSequence.push({
+                        machine: machineId,
+                        entryTime: order.entryTime,
+                        exitTime: order.exitTime,
+                        duration: bufferTime
+                    });
+                });
+            }
+        });
+
+        return orderBufferTimes;
+    }
+
+    function calculateBufferStatistics(machineStats) {
+        const bufferStats = {};
+
+        // Проходим по каждой машине из данных
+        Object.keys(machineStats).forEach(machineId => {
+            const machine = machineStats[machineId];
+
+            // Рассчитываем статистику буфера для каждой машины
+            if (machine.orderHistory) {
+                bufferStats[`Buffer_${machineId}`] = {
+                    currentLevel: calculateCurrentBuffer(machine.orderHistory),
+                    maxLevel: calculateMaxBuffer(machine.orderHistory),
+                    averageLevel: calculateAverageBuffer(machine.orderHistory),
+                    fillPercentage: calculateFillPercentage(machine.orderHistory),
+                    fillCount: countFillOperations(machine.orderHistory),
+                    emptyCount: countEmptyOperations(machine.orderHistory),
+                    idleTime: calculateBufferIdleTime(machine.orderHistory)
+                };
+            }
+        });
+
+        return bufferStats;
+    }
+
+    function calculateCurrentBuffer(orderHistory) {
+        // Считаем текущие активные заказы (где exitTime === null)
+        return orderHistory.filter(order => order.exitTime === null).length;
+    }
+
+    function calculateMaxBuffer(orderHistory) {
+        // Находим максимальное количество одновременных заказов
+        let maxConcurrent = 0;
+        // Логика расчета на основе entryTime/exitTime
+        return maxConcurrent;
+    }
+
+    function calculateAverageBuffer(orderHistory) {
+        // Средний уровень буфера за время симуляции
+        const totalOrders = orderHistory.length;
+        const activeOrders = orderHistory.filter(order => order.exitTime === null).length;
+        return totalOrders > 0 ? activeOrders / totalOrders * 100 : 0;
+    }
+
+    // Функция генерации HTML для статистики
+    function generateStatisticsHTML(stats) {
+        // Получаем данные машин и заказов
+        const machineStats = stats.machineUtilization || {};
+        const orderStats = stats.orderStatistics || {};
+        const bufferStats = calculateBufferStatistics(stats.bufferStatistics || {});
+        const orderBufferTimes = calculateOrderBufferTimes(stats.bufferStatistics || {});
+
+        // Вычисляем общую статистику
+        const totalMachines = Object.keys(machineStats).length;
+        const activeMachines = Object.values(machineStats).filter(m => parseFloat(m.utilization) > 0).length;
+        const totalOrders = Object.keys(orderStats).length;
+        const activeOrders = Object.values(orderStats).filter(o => o.startTime !== null).length;
+        const completedOrders = Object.values(orderStats).filter(o => o.endTime !== null).length;
+
+        // Вычисляем общее время обработки
+        const totalProcessingTime = Object.values(machineStats).reduce((sum, m) => sum + (m.workingTime || 0), 0);
+        const totalPartsProcessed = Object.values(machineStats).reduce((sum, m) => sum + (m.totalPartsProcessed || 0), 0);
+
+        return `
+        <div class="stat-section">
+            <h3>Общая статистика</h3>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <div class="label">Всего машин</div>
+                    <div class="value">${totalMachines}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Активных машин</div>
+                    <div class="value">${activeMachines}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Всего заказов</div>
+                    <div class="value">${totalOrders}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Активных заказов</div>
+                    <div class="value">${activeOrders}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Завершенных заказов</div>
+                    <div class="value">${completedOrders}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Обработано деталей</div>
+                    <div class="value">${totalPartsProcessed}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Общее время работы</div>
+                    <div class="value">${formatTime(totalProcessingTime)}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="label">Время симуляции</div>
+                    <div class="value">${formatTime(stats.totalSimulationTime || 0)}</div>
+                </div>
+<div class="stat-item">
+    <div class="label">Всего буферов</div>
+    <div class="value">${Object.keys(bufferStats).length}</div>
+</div>
+<div class="stat-item">
+    <div class="label">Заполненные буферы</div>
+    <div class="value">${Object.values(bufferStats).filter(b => (b.currentLevel || 0) > 0).length}</div>
+</div>
+            </div>
+        </div>
+
+        <div class="stat-section">
+            <h3>Статистика машин</h3>
+            ${generateMachineStatisticsHTML(machineStats)}
+        </div>
+
+        <div class="stat-section">
+            <h3>Статистика заказов</h3>
+            ${generateOrderStatisticsHTML(orderStats)}
+        </div>
+
+        <div class="stat-section">
+    <h3>Статистика буферов</h3>
+    ${generateBufferStatisticsHTML(bufferStats)}
+</div>
+<div class="stat-section">
+    <h3>Время заказов в буферах</h3>
+    ${generateOrderBufferTimesHTML(orderBufferTimes)}
+</div>
+    `;
+    }
+
+    // Вспомогательные функции
+    function formatTime(minutes) {
+        if (!minutes || minutes === 0) return '0м';
+        const hours = Math.floor(minutes / 60);
+        const mins = Math.round(minutes % 60);
+        if (hours > 0) {
+            return `${hours}ч ${mins}м`;
+        }
+        return `${mins}м`;
+    }
+
+    function formatTimeFromSeconds(seconds) {
+        if (!seconds || seconds === 0) return '0м';
+        const minutes = Math.round(seconds / 60);
+        return formatTime(minutes);
+    }
+
+    function getOrderStatus(order) {
+        if (order.endTime) return 'Завершен';
+        if (order.startTime) return 'В процессе';
+        return 'Ожидает';
+    }
+
+    function generateMachineStatisticsHTML(machineStats) {
+        if (!machineStats || Object.keys(machineStats).length === 0) {
+            return '<p>Нет данных о машинах</p>';
+        }
+
+        let html = `
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th>Машина</th>
+                <th>Использование (%)</th>
+                <th>Время работы</th>
+                <th>Время простоя</th>
+                <th>Доступное время</th>
+                <th>Операций</th>
+                <th>Деталей обработано</th>
+                <th>Общее время</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        for (const [machineId, stats] of Object.entries(machineStats)) {
+            const utilization = parseFloat(stats.utilization || 0).toFixed(1);
+            const availableTime = formatTime(stats.availableTime || 0);
+            const idleTime = formatTime(stats.idleTime || 0);
+            const operations = stats.operationsCompleted || 0;
+            const parts = stats.totalPartsProcessed || 0;
+            const totalTime = formatTime(stats.totalTime || 0);
+
+            // Вычисляем время работы как разность общего времени и времени простоя
+            const workingTimeMinutes = (stats.totalTime || 0) - (stats.idleTime || 0);
+            const workingTime = formatTime(workingTimeMinutes);
+
+            html += `
+            <tr>
+                <td>${machineId}</td>
+                <td>${utilization}%</td>
+                <td>${workingTime}</td>
+                <td>${idleTime}</td>
+                <td>${availableTime}</td>
+                <td>${operations}</td>
+                <td>${parts}</td>
+                <td>${totalTime}</td>
+            </tr>
+        `;
+        }
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    function generateOrderStatisticsHTML(orderStats) {
+        if (!orderStats || Object.keys(orderStats).length === 0) {
+            return '<p>Нет данных о заказах</p>';
+        }
+
+        let html = `
+        <table class="stat-table">
+            <thead>
+                <tr>
+                    <th>Заказ</th>
+                    <th>Статус</th>
+                    <th>Количество</th>
+                    <th>Время обработки</th>
+                    <th>Время ожидания</th>
+                    <th>Машины</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+
+        for (const [orderId, order] of Object.entries(orderStats)) {
+            const status = getOrderStatus(order);
+            const quantity = order.quantity || 0;
+            const processingTime = formatTime(order.totalProcessingTime || 0);
+            const waitingTime = formatTime(order.totalWaitingTime || 0);
+            const machines = (order.machinesUsed || []).join(', ') || 'Нет';
+
+            html += `
+                <tr>
+                    <td>${orderId}</td>
+                    <td>${status}</td>
+                    <td>${quantity}</td>
+                    <td>${processingTime}</td>
+                    <td>${waitingTime}</td>
+                    <td>${machines}</td>
+                </tr>
+            `;
+        }
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    function generateBufferStatisticsHTML(bufferStats) {
+        if (!bufferStats || Object.keys(bufferStats).length === 0) {
+            return '<p>Нет данных о буферах</p>';
+        }
+
+        let html = `
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th>Буфер</th>
+                <th>Текущий уровень</th>
+                <th>Максимальный уровень</th>
+                <th>Средний уровень</th>
+                <th>Время заполнения (%)</th>
+                <th>Количество пополнений</th>
+                <th>Количество извлечений</th>
+                <th>Время простоя</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        for (const [bufferId, stats] of Object.entries(bufferStats)) {
+            html += `
+            <tr>
+                <td>${bufferId}</td>
+                <td>${stats.currentLevel || 0}</td>
+                <td>${stats.maxLevel || 0}</td>
+                <td>${(stats.averageLevel || 0).toFixed(1)}</td>
+                <td>${(stats.fillPercentage || 0).toFixed(1)}%</td>
+                <td>${stats.fillCount || 0}</td>
+                <td>${stats.emptyCount || 0}</td>
+                <td>${formatTime(stats.idleTime || 0)}</td>
+            </tr>
+        `;
+        }
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    function generateOrderBufferTimesHTML(orderBufferTimes) {
+        if (!orderBufferTimes || Object.keys(orderBufferTimes).length === 0) {
+            return '<p>Нет данных о времени заказов в буферах</p>';
+        }
+
+        let html = `
+    <table class="stat-table">
+        <thead>
+            <tr>
+                <th>Заказ</th>
+                <th>Количество</th>
+                <th>Общее время в буферах</th>
+                <th>Детали по машинам</th>
+            </tr>
+        </thead>
+        <tbody>
+    `;
+
+        for (const [orderId, orderData] of Object.entries(orderBufferTimes)) {
+            // Создаем детальную информацию по машинам
+            const machineDetails = Object.entries(orderData.bufferTimes)
+                .map(([machineId, time]) => `${machineId}: ${formatTime(time)}`)
+                .join('<br>');
+
+            html += `
+            <tr>
+                <td>${orderId}</td>
+                <td>${orderData.totalQuantity}</td>
+                <td>${formatTime(orderData.totalBufferTime)}</td>
+                <td>${machineDetails}</td>
+            </tr>
+        `;
+        }
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    // Обработчики событий
+    document.getElementById('statistic').addEventListener('click', showStatistics);
+
+    document.querySelector('.close').addEventListener('click', function () {
+        document.getElementById('statisticsModal').style.display = 'none';
+    });
+
+    window.addEventListener('click', function (event) {
+        const modal = document.getElementById('statisticsModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
 </script>
 
 <script type="module" src="../ui/simulation/canvas.js"></script>
