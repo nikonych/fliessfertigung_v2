@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         html, body {
             margin: 0;
@@ -344,7 +345,31 @@
         .stat-table tbody tr:hover {
             background: rgba(255, 255, 255, 0.1);
         }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .chart-title {
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: white;
+        }
     </style>
+
 </head>
 
 <body>
@@ -476,6 +501,247 @@
 
         content.innerHTML = generateStatisticsHTML(stats);
         modal.style.display = 'block';
+
+        createCharts(stats);
+    }
+
+    function createCharts(stats) {
+        setTimeout(() => {
+            createMachineUtilizationChart(stats.machineUtilization);
+            createOrderStatusChart(stats.orderStatistics);
+            createProcessingTimeChart(stats.orderStatistics);
+            createUtilizationTimeChart(stats.machineUtilization);
+        }, 100);
+    }
+
+    function createMachineUtilizationChart(machineStats) {
+        const ctx = document.getElementById('machineUtilizationChart');
+        if (!ctx) return;
+
+        const machines = Object.keys(machineStats);
+        const utilizations = machines.map(m => parseFloat(machineStats[m].utilization || 0));
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: machines,
+                datasets: [{
+                    label: 'Загрузка (%)',
+                    data: utilizations,
+                    backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                    borderColor: 'rgba(99, 102, 241, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {display: false}
+                },
+                scales: {
+                    y: {beginAtZero: true, max: 100}
+                }
+            }
+        });
+    }
+
+    function createProcessingTimeChart(orderStats) {
+        const ctx = document.getElementById('processingTimeChart');
+        if (!ctx) return;
+
+        const orders = Object.entries(orderStats).filter(([id, order]) => order.totalProcessingTime > 0);
+        const orderIds = orders.map(([id]) => id);
+        const processingTimes = orders.map(([id, order]) => order.totalProcessingTime || 0);
+        const waitingTimes = orders.map(([id, order]) => order.totalWaitingTime || 0);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: orderIds,
+                datasets: [{
+                    label: 'Время обработки (мин)',
+                    data: processingTimes,
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    borderColor: 'rgba(34, 197, 94, 1)',
+                    borderWidth: 2,
+                    borderRadius: 6
+                }, {
+                    label: 'Время ожидания (мин)',
+                    data: waitingTimes,
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 2,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {color: 'white'}
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {color: 'white'},
+                        grid: {color: 'rgba(255,255,255,0.1)'}
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {color: 'white'},
+                        grid: {color: 'rgba(255,255,255,0.1)'}
+                    }
+                }
+            }
+        });
+    }
+
+    function createUtilizationTimeChart(machineStats) {
+        const ctx = document.getElementById('utilizationTimeChart');
+        if (!ctx) return;
+
+        // Получаем данные истории утилизации из первой машины для примера
+        const firstMachine = Object.values(machineStats)[0];
+        if (!firstMachine || !firstMachine.utilizationHistory) {
+            // Если нет данных истории, создаем демо-данные
+            const demoData = [];
+            const demoLabels = [];
+            for (let i = 0; i < 24; i++) {
+                demoLabels.push(`${i}:00`);
+                demoData.push(Math.random() * 100);
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: demoLabels,
+                    datasets: [{
+                        label: 'Средняя загрузка системы (%)',
+                        data: demoData,
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {color: 'white'}
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {color: 'white'},
+                            grid: {color: 'rgba(255,255,255,0.1)'}
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {color: 'white'},
+                            grid: {color: 'rgba(255,255,255,0.1)'}
+                        }
+                    }
+                }
+            });
+            return;
+        }
+
+        // Создаем график на основе реальных данных
+        const datasets = [];
+        const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+        let colorIndex = 0;
+
+        Object.entries(machineStats).forEach(([machineId, stats]) => {
+            if (stats.utilizationHistory && stats.utilizationHistory.length > 0) {
+                const color = colors[colorIndex % colors.length];
+                datasets.push({
+                    label: `Машина ${machineId}`,
+                    data: stats.utilizationHistory.map(h => h.utilization),
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3
+                });
+                colorIndex++;
+            }
+        });
+
+        const labels = firstMachine.utilizationHistory.map(h => {
+            const hours = Math.floor(h.time / 60);
+            const minutes = h.time % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        });
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {color: 'white'}
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {color: 'white'},
+                        grid: {color: 'rgba(255,255,255,0.1)'}
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {color: 'white'},
+                        grid: {color: 'rgba(255,255,255,0.1)'}
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+    }
+
+    function createOrderStatusChart(orderStats) {
+        const ctx = document.getElementById('orderStatusChart');
+        if (!ctx) return;
+
+        const completed = Object.values(orderStats).filter(o => o.endTime).length;
+        const active = Object.values(orderStats).filter(o => o.startTime && !o.endTime).length;
+        const waiting = Object.values(orderStats).filter(o => !o.startTime).length;
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Завершено', 'В процессе', 'Ожидает'],
+                datasets: [{
+                    data: [completed, active, waiting],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {position: 'bottom'}
+                }
+            }
+        });
     }
 
     function calculateFillPercentage(orderHistory) {
@@ -681,16 +947,16 @@
         const orderBufferTimes = calculateOrderBufferTimes(stats.bufferStatistics || {});
 
         // Вычисляем общую статистику
-        const totalMachines = Object.keys(machineStats).length;
-        const activeMachines = Object.values(machineStats).filter(m => parseFloat(m.utilization) > 0).length;
-        const totalOrders = Object.keys(orderStats).length;
-        const activeOrders = Object.values(orderStats).filter(o => o.startTime !== null).length;
-        const completedOrders = Object.values(orderStats).filter(o => o.endTime !== null).length;
+// Вычисляем общую статистику
+const totalMachines = Object.keys(machineStats).length;
+const activeMachines = Object.values(machineStats).filter(m => parseFloat(m.utilization || 0) > 0).length;
+const totalOrders = Object.keys(orderStats).length;
+const activeOrders = Object.values(orderStats).filter(o => o.startTime && !o.endTime).length;
+const completedOrders = Object.values(orderStats).filter(o => o.endTime).length;
 
-        // Вычисляем общее время обработки
-        const totalProcessingTime = Object.values(machineStats).reduce((sum, m) => sum + (m.workingTime || 0), 0);
-        const totalPartsProcessed = Object.values(machineStats).reduce((sum, m) => sum + (m.totalPartsProcessed || 0), 0);
-
+// Вычисляем общее время обработки
+const totalProcessingTime = Object.values(machineStats).reduce((sum, m) => sum + (m.workingTime || 0), 0);
+const totalPartsProcessed = Object.values(machineStats).reduce((sum, m) => sum + (m.totalPartsProcessed || 0), 0);
         return `
         <div class="stat-section">
             <h3>Общая статистика</h3>
@@ -720,6 +986,14 @@
                     <div class="value">${totalPartsProcessed}</div>
                 </div>
                 <div class="stat-item">
+    <div class="label">Среднее время выполнения</div>
+    <div class="value">${formatTime(completedOrders > 0 ? Object.values(orderStats).filter(o => o.endTime).reduce((sum, o) => sum + (o.totalLeadTime || 0), 0) / completedOrders : 0)}</div>
+</div>
+<div class="stat-item">
+    <div class="label">Общее время ожидания</div>
+    <div class="value">${formatTime(Object.values(orderStats).reduce((sum, o) => sum + (o.totalWaitingTime || 0), 0))}</div>
+</div>
+                <div class="stat-item">
                     <div class="label">Общее время работы</div>
                     <div class="value">${formatTime(totalProcessingTime)}</div>
                 </div>
@@ -737,7 +1011,27 @@
 </div>
             </div>
         </div>
-
+<div class="stat-section">
+    <h3>Графики производительности</h3>
+    <div class="chart-grid">
+        <div class="chart-container">
+            <div class="chart-title">Загрузка машин</div>
+            <canvas style="margin-top: 40px; margin-left: 30px;" id="machineUtilizationChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">Статус заказов</div>
+            <canvas style="margin-top: 40px; margin-left: 30px;" id="orderStatusChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <div class="chart-title">Время обработки по заказам</div>
+            <canvas style="margin-top: 40px; margin-left: 30px;" id="processingTimeChart"></canvas>
+        </div>
+<!--        <div class="chart-container">-->
+<!--            <div class="chart-title">Утилизация машин во времени</div>-->
+<!--            <canvas id="utilizationTimeChart"></canvas>-->
+<!--        </div>-->
+    </div>
+</div>
         <div class="stat-section">
             <h3>Статистика машин</h3>
             ${generateMachineStatisticsHTML(machineStats)}
@@ -783,11 +1077,11 @@
     }
 
     function generateMachineStatisticsHTML(machineStats) {
-        if (!machineStats || Object.keys(machineStats).length === 0) {
-            return '<p>Нет данных о машинах</p>';
-        }
+    if (!machineStats || Object.keys(machineStats).length === 0) {
+        return '<p>Нет данных о машинах</p>';
+    }
 
-        let html = `
+    let html = `
     <table class="stat-table">
         <thead>
             <tr>
@@ -795,8 +1089,8 @@
                 <th>Использование (%)</th>
                 <th>Время работы</th>
                 <th>Время простоя</th>
-                <th>Доступное время</th>
-                <th>Операций</th>
+                <th>Время недоступности</th>
+                <th>Операций завершено</th>
                 <th>Деталей обработано</th>
                 <th>Общее время</th>
             </tr>
@@ -804,78 +1098,81 @@
         <tbody>
     `;
 
-        for (const [machineId, stats] of Object.entries(machineStats)) {
-            const utilization = parseFloat(stats.utilization || 0).toFixed(1);
-            const availableTime = formatTime(stats.availableTime || 0);
-            const idleTime = formatTime(stats.idleTime || 0);
-            const operations = stats.operationsCompleted || 0;
-            const parts = stats.totalPartsProcessed || 0;
-            const totalTime = formatTime(stats.totalTime || 0);
+    for (const [machineId, stats] of Object.entries(machineStats)) {
+        const utilization = parseFloat(stats.utilization || 0).toFixed(1);
+        const workingTime = formatTime(stats.workingTime || 0);
+        const idleTime = formatTime(stats.idleTime || 0);
+        const unavailableTime = formatTime(stats.unavailableTime || 0);
+        const operations = stats.operationsCompleted || 0;
+        const parts = stats.totalPartsProcessed || 0;
+        const totalTime = formatTime(stats.totalTime || 0);
 
-            // Вычисляем время работы как разность общего времени и времени простоя
-            const workingTimeMinutes = (stats.totalTime || 0) - (stats.idleTime || 0);
-            const workingTime = formatTime(workingTimeMinutes);
-
-            html += `
+        html += `
             <tr>
                 <td>${machineId}</td>
                 <td>${utilization}%</td>
                 <td>${workingTime}</td>
                 <td>${idleTime}</td>
-                <td>${availableTime}</td>
+                <td>${unavailableTime}</td>
                 <td>${operations}</td>
                 <td>${parts}</td>
                 <td>${totalTime}</td>
             </tr>
         `;
-        }
-
-        html += '</tbody></table>';
-        return html;
     }
 
-    function generateOrderStatisticsHTML(orderStats) {
-        if (!orderStats || Object.keys(orderStats).length === 0) {
-            return '<p>Нет данных о заказах</p>';
-        }
+    html += '</tbody></table>';
+    return html;
+}
 
-        let html = `
+    function generateOrderStatisticsHTML(orderStats) {
+    if (!orderStats || Object.keys(orderStats).length === 0) {
+        return '<p>Нет данных о заказах</p>';
+    }
+
+    let html = `
         <table class="stat-table">
             <thead>
                 <tr>
                     <th>Заказ</th>
                     <th>Статус</th>
                     <th>Количество</th>
+                    <th>Время выполнения</th>
                     <th>Время обработки</th>
                     <th>Время ожидания</th>
+                    <th>Время в системе</th>
                     <th>Машины</th>
                 </tr>
             </thead>
             <tbody>
         `;
 
-        for (const [orderId, order] of Object.entries(orderStats)) {
-            const status = getOrderStatus(order);
-            const quantity = order.quantity || 0;
-            const processingTime = formatTime(order.totalProcessingTime || 0);
-            const waitingTime = formatTime(order.totalWaitingTime || 0);
-            const machines = (order.machinesUsed || []).join(', ') || 'Нет';
+    for (const [orderId, order] of Object.entries(orderStats)) {
+        const status = getOrderStatus(order);
+        const quantity = order.quantity || order.anzahl || 0;
+        const leadTime = formatTime(order.totalLeadTime || 0);
+        const processingTime = formatTime(order.totalProcessingTime || 0);
+        const waitingTime = formatTime(order.totalWaitingTime || 0);
+        const systemTime = order.enteredSystemTime ? formatTime(Date.now() - order.enteredSystemTime) : 'Н/Д';
+        const machines = (order.machinesUsed || []).join(', ') || 'Нет';
 
-            html += `
-                <tr>
-                    <td>${orderId}</td>
-                    <td>${status}</td>
-                    <td>${quantity}</td>
-                    <td>${processingTime}</td>
-                    <td>${waitingTime}</td>
-                    <td>${machines}</td>
-                </tr>
-            `;
-        }
-
-        html += '</tbody></table>';
-        return html;
+        html += `
+            <tr>
+                <td>${orderId}</td>
+                <td>${status}</td>
+                <td>${quantity}</td>
+                <td>${leadTime}</td>
+                <td>${processingTime}</td>
+                <td>${waitingTime}</td>
+                <td>${systemTime}</td>
+                <td>${machines}</td>
+            </tr>
+        `;
     }
+
+    html += '</tbody></table>';
+    return html;
+}
 
     function generateBufferStatisticsHTML(bufferStats) {
         if (!bufferStats || Object.keys(bufferStats).length === 0) {
