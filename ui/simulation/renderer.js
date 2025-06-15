@@ -42,7 +42,7 @@ const LAYOUT = {
     rightPadding: 50,
     bottomPadding: 50,
     taskHeight: 30,
-    queueItemHeight: 25,
+    queueItemHeight: 30,
     queueItemWidth: 100,
     queueItemSpacing: 5,
     dragHandleHeight: 25
@@ -365,7 +365,7 @@ function drawMachineWithQueue(x, y, machineNr, status, simulation) {
     drawMachine(x, y, machineNr, status, simulation.activeTasks);
 
     // Draw machine queue below
-    drawMachineQueue(x, y + size * 0.7 + 60, machineNr, simulation);
+    drawMachineQueue(x, y + size * 0.7 + 30, machineNr, simulation);
 }
 
 function drawMachine(x, y, machineNr, status, activeTasks) {

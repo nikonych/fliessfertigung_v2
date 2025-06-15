@@ -1,11 +1,11 @@
 // ui/simulation/canvas.js
-import { initCanvas, draw, startAnimation, stopAnimation } from './renderer.js';
+import {initCanvas, draw, startAnimation, stopAnimation} from './renderer.js';
 
 // Canvas и контекст
 let canvas, ctx;
 let isDragging = false;
-let dragStart = { x: 0, y: 0 };
-let offset = { x: 0, y: 0 };
+let dragStart = {x: 0, y: 0};
+let offset = {x: 0, y: 0};
 let scale = 1;
 
 // Инициализация Canvas
@@ -15,29 +15,29 @@ function init() {
         console.error('Canvas element not found');
         return;
     }
-    
+
     ctx = canvas.getContext('2d');
-    
+
     // Установка размеров Canvas
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
-    
+
     // Обработчики событий мыши для панорамирования и масштабирования
     setupCanvasInteraction();
-    
+
     // Инициализация рендерера
     initCanvas();
-    
+
     console.log('Canvas system initialized');
 }
 
 function resizeCanvas() {
     if (!canvas) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    
+
     // Перерисовать после изменения размера
     if (window.simulation) {
         draw();
@@ -53,7 +53,7 @@ function setupCanvasInteraction() {
         dragStart.y = e.clientY - offset.y;
         canvas.style.cursor = 'grabbing';
     });
-    
+
     canvas.addEventListener('mousemove', (e) => {
         if (window.isPanelDragging) return;
         if (isDragging) {
@@ -62,33 +62,33 @@ function setupCanvasInteraction() {
             draw();
         }
     });
-    
+
     canvas.addEventListener('mouseup', () => {
         isDragging = false;
         canvas.style.cursor = 'grab';
     });
-    
+
     canvas.addEventListener('mouseleave', () => {
         isDragging = false;
         canvas.style.cursor = 'default';
     });
-    
+
     // Масштабирование колесиком мыши
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        
+
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
         const newScale = Math.max(0.5, Math.min(3, scale * delta));
-        
+
         if (newScale !== scale) {
             scale = newScale;
             draw();
         }
     });
-    
+
     // Клики по Canvas для взаимодействия
     canvas.addEventListener('click', handleCanvasClick);
-    
+
     // Установить начальный курсор
     canvas.style.cursor = 'grab';
 }
@@ -116,11 +116,287 @@ function handleCanvasClick(e) {
     if (clickedMachine) {
         showMachineDetails(clickedMachine);
     }
+
+    // Проверить, был ли клик по заказу в очереди
+    const clickedOrder = findOrderAtPosition(canvasX, canvasY);
+    if (clickedOrder) {
+        showOrderDetails(clickedOrder);
+        return;
+    }
+
+}
+
+const LAYOUT = {
+    machineSize: 150,
+    machineSpacing: 20,
+    topPadding: 80,
+    leftPadding: 50,
+    rightPadding: 50,
+    bottomPadding: 50,
+    taskHeight: 30,
+    queueItemHeight: 30,
+    queueItemWidth: 100,
+    queueItemSpacing: 5,
+    dragHandleHeight: 25
+};
+
+function findOrderAtPosition(x, y) {
+    if (!window.simulation || !window.simulation.maschinenStatus) return null;
+
+    const machines = Object.entries(window.simulation.maschinenStatus);
+    const queueStartOffset = 135;
+
+    const cols = Math.floor((canvas.width - LAYOUT.leftPadding - LAYOUT.rightPadding) / (LAYOUT.machineSize + LAYOUT.machineSpacing));
+
+    for (let i = 0; i < machines.length; i++) {
+        const machineNr = machines[i][0];
+        const machineQueue = getMachineQueue(machineNr, window.simulation);
+
+        if (machineQueue.length === 0) continue;
+
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+
+        const machineX = LAYOUT.leftPadding + col * (LAYOUT.machineSize + LAYOUT.machineSpacing);
+        const machineY = LAYOUT.topPadding + row * (LAYOUT.machineSize + LAYOUT.machineSpacing * 2 + 200);
+
+        // Проверяем клики по элементам очереди
+        const queueStartY = machineY + queueStartOffset;
+        const itemsToShow = Math.min(5, machineQueue.length);
+
+        for (let queueIndex = 0; queueIndex < itemsToShow; queueIndex++) {
+            const itemY = queueStartY + queueIndex * LAYOUT.queueItemHeight;
+
+            if (x >= machineX && x <= machineX + LAYOUT.machineSize &&
+                y >= itemY && y <= itemY + LAYOUT.queueItemHeight) {
+                return {
+                    order: machineQueue[queueIndex],
+                    machineNr: machineNr,
+                    queuePosition: queueIndex + 1
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
+function showOrderDetails(orderInfo) {
+    const { order, machineNr, queuePosition } = orderInfo;
+    const auftragStatus = window.simulation.auftraegeStatus[order.auftrag_nr];
+    const auftragData = window.simulation.auftraege?.find(a => a.auftrag_nr === order.auftrag_nr);
+
+    let details = `📦 Auftrag ${order.auftrag_nr}\n`;
+    details += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // Grundinformationen
+    if (auftragData) {
+        details += `📋 Artikel: ${auftragData.artikel || 'N/A'}\n`;
+        details += `📊 Menge: ${auftragData.anzahl || 'N/A'} Stück\n`;
+        details += `📅 Liefertermin: ${auftragData.liefertermin || 'N/A'}\n`;
+        details += `⏰ Eingangsdatum: ${auftragData.eingangsdatum || 'N/A'}\n`;
+    }
+
+    details += `\n🎯 WARTESCHLANGEN-INFO:\n`;
+    details += `   🏭 Maschine: ${machineNr}\n`;
+    details += `   📍 Position in Warteschlange: ${queuePosition}\n`;
+    details += `   🔢 Arbeitsschritt: ${order.stepNumber}\n`;
+    details += `   ⏱️ Geplante Dauer: ${order.duration}h\n`;
+
+    // Arbeitsplan-Status
+    if (auftragStatus) {
+        details += `\n📋 ARBEITSPLAN-STATUS:\n`;
+        details += `   📊 Fortschritt: Schritt ${auftragStatus.currentStep + 1} von ${auftragStatus.arbeitsplaene.length}\n`;
+        details += `   ✅ Abgeschlossen: ${auftragStatus.completed ? 'Ja' : 'Nein'}\n`;
+
+        // Bereits abgeschlossene Schritte
+        const completedSteps = auftragStatus.arbeitsplaene.slice(0, auftragStatus.currentStep);
+        if (completedSteps.length > 0) {
+            details += `\n✅ ABGESCHLOSSENE SCHRITTE:\n`;
+            completedSteps.forEach((step, index) => {
+                details += `   ${index + 1}. Maschine ${step.maschine} - ${step.dauer}h\n`;
+            });
+        }
+
+        // Aktueller Schritt
+        const currentStep = auftragStatus.arbeitsplaene[auftragStatus.currentStep];
+        if (currentStep) {
+            details += `\n🔄 AKTUELLER SCHRITT:\n`;
+            details += `   🏭 Maschine: ${currentStep.maschine}\n`;
+            details += `   ⏱️ Dauer: ${currentStep.dauer}h\n`;
+            details += `   📋 Beschreibung: ${currentStep.beschreibung || 'N/A'}\n`;
+        }
+
+        // Verbleibende Schritte
+        const remainingSteps = auftragStatus.arbeitsplaene.slice(auftragStatus.currentStep + 1);
+        if (remainingSteps.length > 0) {
+            details += `\n⏳ VERBLEIBENDE SCHRITTE:\n`;
+            remainingSteps.forEach((step, index) => {
+                details += `   ${auftragStatus.currentStep + index + 2}. Maschine ${step.maschine} - ${step.dauer}h\n`;
+            });
+        }
+    }
+
+    // Prioritätsinformation
+    const priority = order.priority === 1 ? 'Hoch (Erster Schritt)' : 'Normal';
+    details += `\n🎯 PRIORITÄT: ${priority}\n`;
+
+    // Zeitschätzungen
+    const machineStatus = window.simulation.maschinenStatus[machineNr];
+    if (machineStatus) {
+        const activeTask = window.simulation.activeTasks.find(task => task.maschine == machineNr);
+        const estimatedWaitTime = calculateEstimatedWaitTime(machineNr, queuePosition);
+
+        details += `\n⏰ ZEITSCHÄTZUNGEN:\n`;
+        details += `   ⏱️ Geschätzte Wartezeit: ${estimatedWaitTime}h\n`;
+
+        if (activeTask) {
+            const remainingActiveTime = Math.ceil(activeTask.remaining / 60);
+            details += `   🔄 Aktive Aufgabe verbleibend: ${remainingActiveTime}h\n`;
+        }
+    }
+
+    // Technische Details
+    details += `\n🔧 TECHNISCHE DETAILS:\n`;
+    details += `   🆔 Auftrag-ID: ${order.auftrag_nr}\n`;
+    details += `   🔢 Schritt-Nummer: ${order.stepNumber}\n`;
+    details += `   🏭 Ziel-Maschine: ${machineNr}\n`;
+
+    // Verwende das gleiche Modal-System wie bei Maschinen
+    showOrderModal(details, order);
+}
+
+function calculateEstimatedWaitTime(machineNr, queuePosition) {
+    const machineQueue = getMachineQueue(machineNr, window.simulation);
+    const activeTask = window.simulation.activeTasks.find(task => task.maschine == machineNr);
+
+    let totalWaitTime = 0;
+
+    // Zeit für aktive Aufgabe
+    if (activeTask) {
+        totalWaitTime += Math.ceil(activeTask.remaining / 60);
+    }
+
+    // Zeit für Aufgaben vor diesem in der Warteschlange
+    for (let i = 0; i < queuePosition - 1 && i < machineQueue.length; i++) {
+        totalWaitTime += machineQueue[i].duration || 0;
+    }
+
+    return totalWaitTime;
+}
+
+function showOrderModal(details, order) {
+    // Erstelle Modal-Overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        font-family: 'Courier New', monospace;
+    `;
+
+    // Erstelle Modal-Content
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        position: relative;
+    `;
+
+    // Erstelle Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eee;
+    `;
+
+    const title = document.createElement('h3');
+    title.textContent = `📦 Auftrag ${order.auftrag_nr} - Details`;
+    title.style.cssText = `
+        margin: 0;
+        color: #2c3e50;
+        font-size: 20px;
+    `;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = `
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+
+    // Erstelle Content
+    const content = document.createElement('pre');
+    content.textContent = details;
+    content.style.cssText = `
+        white-space: pre-wrap;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #2c3e50;
+        margin: 0;
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #e67e22;
+    `;
+
+    // Zusammenbauen
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+    modal.appendChild(content);
+    overlay.appendChild(modal);
+
+    // Event Listeners
+    closeBtn.onclick = () => document.body.removeChild(overlay);
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            document.body.removeChild(overlay);
+        }
+    };
+
+    // ESC-Taste zum Schließen
+    const handleEsc = (e) => {
+        if (e.key === 'Escape') {
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
+
+    // Zu DOM hinzufügen
+    document.body.appendChild(overlay);
 }
 
 function findMachineAtPosition(x, y) {
     if (!window.simulation || !window.simulation.maschinenStatus) return null;
-    
+
     const machines = Object.entries(window.simulation.maschinenStatus);
     const machineSize = 150; // Используем LAYOUT.machineSize из renderer.js
     const machineSpacing = 20; // Используем LAYOUT.machineSpacing из renderer.js
@@ -144,11 +420,11 @@ function findMachineAtPosition(x, y) {
             return {
                 nr: machines[i][0],
                 status: machines[i][1],
-                position: { x: machineX, y: machineY }
+                position: {x: machineX, y: machineY}
             };
         }
     }
-    
+
     return null;
 }
 
@@ -444,7 +720,7 @@ function restoreContext() {
 }
 
 // Экспорт функций для использования в renderer.js
-window.getCanvasTransform = () => ({ offset, scale });
+window.getCanvasTransform = () => ({offset, scale});
 window.transformCanvas = () => {
     ctx.save();
     ctx.translate(offset.x, offset.y);
@@ -471,7 +747,7 @@ export function getCanvasSize() {
 // Функция для создания скриншота симуляции
 export function saveScreenshot() {
     if (!canvas) return;
-    
+
     const link = document.createElement('a');
     link.download = `simulation_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
     link.href = canvas.toDataURL();
