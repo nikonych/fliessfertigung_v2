@@ -389,7 +389,12 @@ function simulationStep() {
 
             // Уменьшаем оставшееся время задачи на текущий размер шага
             task.remaining -= currentStepSize;
-            console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}min übrig (${task.anzahl} шт.)`);
+
+            // Рассчитываем количество обработанных штук на основе прогресса
+            const progress = 1 - (task.remaining / task.totalDuration);
+            task.processedUnits = Math.floor(progress * task.anzahl);
+
+            console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}min übrig (${task.processedUnits}/${task.anzahl} шт.)`);
 
             if (task.remaining <= 0) {
                 // Освобождаем машину
@@ -493,7 +498,9 @@ function simulationStep() {
                     operation: auftragStatus.currentStep + 1,
                     paused: false,
                     anzahl: auftrag.Anzahl || 1,
-                    dauerPerUnit: currentOperation.dauer
+                    dauerPerUnit: currentOperation.dauer,
+                    processedUnits: 0, // Количество уже обработанных штук
+                    totalDuration: totalDuration // Изначальная продолжительность для расчетов
                 });
 
                 console.log(`🚀 Starte Auftrag ${auftrag.auftrag_nr} Schritt ${auftragStatus.currentStep + 1} auf Maschine ${machineId}`);

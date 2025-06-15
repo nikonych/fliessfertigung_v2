@@ -35,7 +35,7 @@ const COLORS = {
 
 // Layout constants
 const LAYOUT = {
-    machineSize: 120,
+    machineSize: 150,
     machineSpacing: 20,
     topPadding: 80,
     leftPadding: 50,
@@ -372,7 +372,7 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
     const size = LAYOUT.machineSize;
 
     const machineObj = simulation.maschinen?.find(m => m.Nr == machineNr);
-
+    console.log(machineObj)
 
     // Получаем дополнительную информацию для точного определения статуса
     const isAvailable = machineObj ? window.isMachineAvailable(machineObj) : false;
@@ -407,54 +407,64 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
         console.warn(`Неопределенный статус машины ${machineNr}:`, status);
     }
 
-// Machine body
+    // Machine body
     ctx.fillStyle = fillColor;
     ctx.fillRect(x, y, size, size * 0.7);
 
-// Machine border
+    // Machine border
     ctx.strokeStyle = COLORS.machine.border;
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, size, size * 0.7);
 
-// Machine number
+    // Machine number
     ctx.fillStyle = COLORS.text.white;
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(`M${machineNr}`, x + size / 2, y + 25);
 
-// Capacity
+    // Capacity
     ctx.font = '12px Arial';
     ctx.fillText(`${status.kapTag}h/Tag`, x + size / 2, y + 45);
 
-// Status text
+    // Active task info (теперь внутри машины)
+    const activeTask = activeTasks.find(task => task.maschine == machineNr);
+    if (activeTask) {
+        // Отображаем количество штук внутри машины
+        ctx.fillStyle = COLORS.text.white;
+        ctx.font = '10px Arial';
+        if (activeTask.anzahl) {
+            const remainingUnits = activeTask.anzahl - (activeTask.processedUnits || 0);
+            ctx.fillText(`${Math.max(0, remainingUnits)}/${activeTask.anzahl} Stk`, x + size / 2, y + 60);
+        }
+
+        // Номер заказа
+        ctx.fillText(`${activeTask.auftrag_nr}`, x + size / 2, y + 72);
+
+        // Progress bar внутри машины
+        const progress = (activeTask.processedUnits || 0) / activeTask.anzahl;
+        const barWidth = size * 0.7; // Немного уже, чтобы поместиться внутри
+        const barHeight = 4;
+        const barX = x + (size - barWidth) / 2;
+        const barY = y + size * 0.7 - 25; // Размещаем в нижней части машины
+
+        // Progress background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        // Progress fill
+        ctx.fillStyle = COLORS.text.white;
+        ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+
+        // Время внутри машины
+        ctx.font = '12px Arial';
+        ctx.fillText(`${Math.ceil(activeTask.remaining / 60)} h übrig`, x + size / 2, y + size * 0.7 - 5);
+    }
+
+    // Status text (остается снаружи)
     ctx.fillStyle = COLORS.text.primary;
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(statusText, x + size / 2, y + size * 0.7 + 15);
-
-// Active task info
-    const activeTask = activeTasks.find(task => task.maschine == machineNr);
-    if (activeTask) {
-        ctx.fillStyle = COLORS.text.secondary;
-        ctx.font = '10px Arial';
-        ctx.fillText(`${activeTask.auftrag_nr}`, x + size / 2, y + size * 0.7 + 30);
-        ctx.fillText(`${Math.ceil(activeTask.remaining / 60)} h übrig`, x + size / 2, y + size * 0.7 + 45);
-
-        // Progress bar
-        const progress = 1 - (activeTask.remaining / getOriginalDuration(activeTask));
-        const barWidth = size * 0.8;
-        const barHeight = 6;
-        const barX = x + (size - barWidth) / 2;
-        const barY = y + size * 0.7 - 15;
-
-        // Progress background
-        ctx.fillStyle = COLORS.ui.border;
-        ctx.fillRect(barX, barY, barWidth, barHeight);
-
-        // Progress fill
-        ctx.fillStyle = COLORS.task.active;
-        ctx.fillRect(barX, barY, barWidth * progress, barHeight);
-    }
 
     ctx.textAlign = 'left'; // Reset text alignment
 }

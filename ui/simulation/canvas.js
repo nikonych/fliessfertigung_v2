@@ -94,12 +94,25 @@ function setupCanvasInteraction() {
 }
 
 function handleCanvasClick(e) {
+    // Если сейчас перетаскиваем панель, не обрабатываем клики по машинам
+    if (window.isPanelDragging) return;
+
     const rect = canvas.getBoundingClientRect();
-    const clickX = (e.clientX - rect.left - offset.x) / scale;
-    const clickY = (e.clientY - rect.top - offset.y) / scale;
-    
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Преобразуем координаты с учетом трансформаций (pan/zoom)
+    const transform = window.getCanvasTransform?.();
+    const scale = transform?.scale || 1;
+    const offsetX = transform?.offset?.x || 0;
+    const offsetY = transform?.offset?.y || 0;
+
+    // Получаем координаты в системе координат Canvas с учетом трансформаций
+    const canvasX = (mouseX - offsetX) / scale;
+    const canvasY = (mouseY - offsetY) / scale;
+
     // Проверить, был ли клик по машине
-    const clickedMachine = findMachineAtPosition(clickX, clickY);
+    const clickedMachine = findMachineAtPosition(canvasX, canvasY);
     if (clickedMachine) {
         showMachineDetails(clickedMachine);
     }
@@ -109,21 +122,23 @@ function findMachineAtPosition(x, y) {
     if (!window.simulation || !window.simulation.maschinenStatus) return null;
     
     const machines = Object.entries(window.simulation.maschinenStatus);
-    const machineSize = 120;
-    const machineSpacing = 20;
-    const topPadding = 80;
-    const leftPadding = 50;
-    const rightPadding = 300;
-    
+    const machineSize = 150; // Используем LAYOUT.machineSize из renderer.js
+    const machineSpacing = 20; // Используем LAYOUT.machineSpacing из renderer.js
+    const topPadding = 80; // Используем LAYOUT.topPadding из renderer.js
+    const leftPadding = 50; // Используем LAYOUT.leftPadding из renderer.js
+    const rightPadding = 50; // Используем LAYOUT.rightPadding из renderer.js
+
     const cols = Math.floor((canvas.width - leftPadding - rightPadding) / (machineSize + machineSpacing));
-    
+
     for (let i = 0; i < machines.length; i++) {
         const row = Math.floor(i / cols);
         const col = i % cols;
-        
+
         const machineX = leftPadding + col * (machineSize + machineSpacing);
-        const machineY = topPadding + row * (machineSize + machineSpacing);
-        
+        // Обновляем расчет Y координаты в соответствии с renderer.js
+        const machineY = topPadding + row * (machineSize + machineSpacing * 2 + 200);
+
+        // Проверяем попадание в область машины (только верхняя часть)
         if (x >= machineX && x <= machineX + machineSize &&
             y >= machineY && y <= machineY + machineSize * 0.7) {
             return {
@@ -138,20 +153,282 @@ function findMachineAtPosition(x, y) {
 }
 
 function showMachineDetails(machine) {
-    // Найти активную задачу для этой машины
     const activeTask = window.simulation.activeTasks.find(task => task.maschine == machine.nr);
-    
-    let details = `Maschine ${machine.nr}\n`;
-    details += `Bezeichnung: ${machine.status.bezeichnung || 'N/A'}\n`;
-    details += `Kapazität: ${machine.status.kapTag}h/Tag\n`;
-    details += `Status: ${machine.status.verfuegbar ? (machine.status.frei ? 'Frei' : 'Beschäftigt') : 'Nicht verfügbar'}\n`;
-    
-    if (activeTask) {
-        details += `\nAktiver Auftrag: ${activeTask.auftrag_nr}\n`;
-        details += `Verbleibende Zeit: ${activeTask.remaining}h`;
+    const machineObj = window.simulation.maschinen?.find(m => m.Nr == machine.nr);
+
+    // Получаем дополнительную информацию для точного определения статуса
+    const isAvailable = machineObj ? window.isMachineAvailable(machineObj) : false;
+    const isWorkingTime = machineObj ? window.isMachineWorkingTime(machineObj) : false;
+
+    // Получаем очередь для этой машины
+    const machineQueue = getMachineQueue(machine.nr, window.simulation);
+
+    let details = `🏭 Maschine ${machine.nr}\n`;
+    details += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // Основная информация
+    details += `📋 Bezeichnung: ${machine.status.bezeichnung || 'N/A'}\n`;
+    details += `⚡ Kapazität: ${machine.status.kapTag}h/Tag\n`;
+
+    // Рабочее время (если доступно)
+    if (machineObj && machineObj.Verfuegbar_von && machineObj.Verfuegbar_bis) {
+        details += `⏰ Arbeitszeit: ${machineObj.Verfuegbar_von} - ${machineObj.Verfuegbar_bis}\n`;
     }
-    
-    alert(details); // Простое решение, можно заменить на красивый popup
+
+    // Доступность по датам (если доступно)
+    if (machineObj && machineObj.Verfuegbar_ab && machineObj.Verfuegbar_bis_datum) {
+        details += `📅 Verfügbar: ${machineObj.Verfuegbar_ab} - ${machineObj.Verfuegbar_bis_datum}\n`;
+    }
+
+    details += `\n`;
+
+    // Детальный статус
+    let statusIcon, statusText, statusDetails = '';
+
+    if (!machine.status.verfuegbar) {
+        statusIcon = '🔴';
+        statusText = 'Nicht verfügbar';
+        statusDetails = 'Maschine ist außerhalb der Verfügbarkeitsdaten';
+    } else if (machine.status.hasUnfinishedTask && machine.status.waitingForWorkingTime) {
+        statusIcon = '🟠';
+        statusText = 'Wartet auf Arbeitszeit';
+        statusDetails = 'Hat unvollendete Aufgabe, aber aktuell Ruhezeit';
+    } else if (!machine.status.frei && machine.status.hasUnfinishedTask) {
+        statusIcon = '🔵';
+        statusText = 'Beschäftigt';
+        statusDetails = 'Führt aktiv eine Aufgabe aus';
+    } else if (machine.status.frei && machine.status.canStartNewTask) {
+        statusIcon = '🟢';
+        statusText = 'Frei und bereit';
+        statusDetails = 'Kann neue Aufgaben annehmen';
+    } else if (machine.status.frei && !isWorkingTime && isAvailable) {
+        statusIcon = '⚫';
+        statusText = 'Ruhezeit';
+        statusDetails = 'Frei, aber außerhalb der Arbeitszeit';
+    } else {
+        statusIcon = '🟤';
+        statusText = 'Unbestimmter Status';
+        statusDetails = 'Status konnte nicht eindeutig bestimmt werden';
+    }
+
+    details += `${statusIcon} Status: ${statusText}\n`;
+    if (statusDetails) {
+        details += `   ${statusDetails}\n`;
+    }
+
+    // Aktive Aufgabe
+    if (activeTask) {
+        details += `\n🔄 AKTIVE AUFGABE:\n`;
+        details += `   📦 Auftrag: ${activeTask.auftrag_nr}\n`;
+
+        if (activeTask.anzahl) {
+            const processedUnits = activeTask.processedUnits || 0;
+            const remainingUnits = Math.max(0, activeTask.anzahl - processedUnits);
+            const progress = Math.round((processedUnits / activeTask.anzahl) * 100);
+
+            details += `   📊 Fortschritt: ${processedUnits}/${activeTask.anzahl} Stück (${progress}%)\n`;
+            details += `   📋 Verbleibend: ${remainingUnits} Stück\n`;
+        }
+
+        const remainingHours = Math.ceil(activeTask.remaining / 60);
+        const remainingMinutes = activeTask.remaining % 60;
+
+        if (remainingHours > 0) {
+            details += `   ⏱️ Verbleibende Zeit: ${remainingHours}h ${remainingMinutes}min\n`;
+        } else {
+            details += `   ⏱️ Verbleibende Zeit: ${remainingMinutes}min\n`;
+        }
+
+        // Schritt-Information (falls verfügbar)
+        if (activeTask.stepNumber) {
+            details += `   🔢 Arbeitsschritt: ${activeTask.stepNumber}\n`;
+        }
+    }
+
+    // Warteschlange
+    if (machineQueue.length > 0) {
+        details += `\n📋 WARTESCHLANGE (${machineQueue.length}):\n`;
+
+        // Zeige erste 5 Aufträge in der Warteschlange
+        const itemsToShow = Math.min(5, machineQueue.length);
+        for (let i = 0; i < itemsToShow; i++) {
+            const queueItem = machineQueue[i];
+            const position = i + 1;
+            const priority = i === 0 ? '🔥' : '📌';
+
+            details += `   ${priority} ${position}. ${queueItem.auftrag_nr} (Schritt ${queueItem.stepNumber})`;
+            if (queueItem.duration) {
+                details += ` - ${queueItem.duration}h`;
+            }
+            details += `\n`;
+        }
+
+        if (machineQueue.length > itemsToShow) {
+            details += `   ... und ${machineQueue.length - itemsToShow} weitere\n`;
+        }
+    } else {
+        details += `\n📋 WARTESCHLANGE: Leer\n`;
+    }
+
+    // Zusätzliche technische Details
+    details += `\n🔧 TECHNISCHE DETAILS:\n`;
+    details += `   🆔 Maschinen-ID: ${machine.nr}\n`;
+    details += `   🎯 Kann neue Aufgabe starten: ${machine.status.canStartNewTask ? 'Ja' : 'Nein'}\n`;
+    details += `   ⚙️ Hat unvollendete Aufgabe: ${machine.status.hasUnfinishedTask ? 'Ja' : 'Nein'}\n`;
+    details += `   ⏰ Arbeitszeit aktiv: ${isWorkingTime ? 'Ja' : 'Nein'}\n`;
+    details += `   📅 Verfügbar nach Datum: ${isAvailable ? 'Ja' : 'Nein'}\n`;
+
+    // Verwende ein schöneres Modal anstatt alert
+    showMachineModal(details, machine);
+}
+
+function showMachineModal(details, machine) {
+    // Erstelle Modal-Overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        font-family: 'Courier New', monospace;
+    `;
+
+    // Erstelle Modal-Content
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        position: relative;
+    `;
+
+    // Erstelle Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eee;
+    `;
+
+    const title = document.createElement('h3');
+    title.textContent = `🏭 Maschine ${machine.nr} - Details`;
+    title.style.cssText = `
+        margin: 0;
+        color: #2c3e50;
+        font-size: 20px;
+    `;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = `
+        background: #e74c3c;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+
+    // Erstelle Content
+    const content = document.createElement('pre');
+    content.textContent = details;
+    content.style.cssText = `
+        white-space: pre-wrap;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #2c3e50;
+        margin: 0;
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border-left: 4px solid #3498db;
+    `;
+
+    // Zusammenbauen
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+    modal.appendChild(content);
+    overlay.appendChild(modal);
+
+    // Event Listeners
+    closeBtn.onclick = () => document.body.removeChild(overlay);
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            document.body.removeChild(overlay);
+        }
+    };
+
+    // ESC-Taste zum Schließen
+    const handleEsc = (e) => {
+        if (e.key === 'Escape') {
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
+
+    // Zu DOM hinzufügen
+    document.body.appendChild(overlay);
+}
+
+// Hilfsfunktion - falls nicht verfügbar
+function getMachineQueue(machineNr, simulation) {
+    const queue = [];
+    const addedOrders = new Set();
+
+    for (const auftrag of simulation.auftraegeQueue) {
+        const auftragStatus = simulation.auftraegeStatus[auftrag.auftrag_nr];
+
+        if (!auftragStatus || auftragStatus.completed) continue;
+
+        const hasActiveTask = simulation.activeTasks.some(task => task.auftrag_nr === auftrag.auftrag_nr);
+        if (hasActiveTask) continue;
+
+        if (addedOrders.has(auftrag.auftrag_nr)) continue;
+
+        const currentOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep];
+        if (!currentOperation) continue;
+
+        if (currentOperation.maschine == machineNr) {
+            queue.push({
+                auftrag_nr: auftrag.auftrag_nr,
+                stepNumber: auftragStatus.currentStep + 1,
+                duration: currentOperation.dauer,
+                priority: auftragStatus.currentStep === 0 ? 1 : 2,
+                auftrag: auftrag
+            });
+            addedOrders.add(auftrag.auftrag_nr);
+        }
+    }
+
+    queue.sort((a, b) => {
+        if (a.priority !== b.priority) {
+            return a.priority - b.priority;
+        }
+        return a.auftrag_nr.localeCompare(b.auftrag_nr);
+    });
+
+    return queue;
 }
 
 // Функции рендеринга с учетом трансформаций
