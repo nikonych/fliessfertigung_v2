@@ -140,6 +140,12 @@ const LAYOUT = {
     dragHandleHeight: 25
 };
 
+function excelToDate(serial) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const date = new Date(excelEpoch.getTime() + serial * 86400 * 1000);
+    return date.toISOString().split('T')[0];
+}
+
 function findOrderAtPosition(x, y) {
     if (!window.simulation || !window.simulation.maschinenStatus) return null;
 
@@ -191,10 +197,8 @@ function showOrderDetails(orderInfo) {
 
     // Grundinformationen
     if (auftragData) {
-        details += `📋 Artikel: ${auftragData.artikel || 'N/A'}\n`;
-        details += `📊 Menge: ${auftragData.anzahl || 'N/A'} Stück\n`;
-        details += `📅 Liefertermin: ${auftragData.liefertermin || 'N/A'}\n`;
-        details += `⏰ Eingangsdatum: ${auftragData.eingangsdatum || 'N/A'}\n`;
+        details += `📋 Artikel: ${auftragData.auftrag_nr || 'N/A'}\n`;
+        details += `📊 Menge: ${auftragData.Anzahl || 'N/A'} Stück\n`;
     }
 
     details += `\n🎯 WARTESCHLANGEN-INFO:\n`;
@@ -451,7 +455,14 @@ function showMachineDetails(machine) {
         details += `⏰ Arbeitszeit: ${machineObj.Verfuegbar_von} - ${machineObj.Verfuegbar_bis}\n`;
     }
 
-    // Доступность по датам (если доступно)
+    // Период доступности машины (конвертация из Excel формата)
+    if (machineObj && machineObj.verf_von && machineObj.verf_bis) {
+        const startDate = excelToDate(machineObj.verf_von);
+        const endDate = excelToDate(machineObj.verf_bis);
+        details += `📅 Verfügbarkeitszeitraum: ${startDate} - ${endDate}\n`;
+    }
+
+    // Доступность по датам (если доступно - старый формат)
     if (machineObj && machineObj.Verfuegbar_ab && machineObj.Verfuegbar_bis_datum) {
         details += `📅 Verfügbar: ${machineObj.Verfuegbar_ab} - ${machineObj.Verfuegbar_bis_datum}\n`;
     }

@@ -469,66 +469,52 @@ function simulationStep() {
 
             const machineId = currentOperation.maschine;
             const machineStatus = window.simulation.maschinenStatus[machineId];
+
+            // Проверяем, есть ли заказ уже в очереди этой машины
+            const alreadyInQueue = machineStatus.queue.some(item => item.auftrag_nr === auftrag.auftrag_nr);
+
+            if (!alreadyInQueue) {
+                // Добавляем в очередь машины
+                machineStatus.queue.push({
+                    auftrag_nr: auftrag.auftrag_nr,
+                    operation: currentOperation,
+                    anzahl: auftrag.Anzahl || 1
+                });
+                console.log(`📝 Заказ ${auftrag.auftrag_nr} добавлен в очередь машины ${machineId}`);
+            }
+        }
+
+        // После логики добавления в очереди, обрабатываем очереди каждой машины
+        Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+            const machineStatus = window.simulation.maschinenStatus[machineId];
             const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
 
-            if (!machineStatus || !machineData) {
-                console.warn(`⚠️ Машина ${machineId} не найдена!`);
-                continue;
-            }
-
-            // Проверяем, может ли машина начать новую задачу
-            const canStartTask = machineStatus.canStartNewTask;
-
-            console.log(`🎯 Заказ ${auftrag.auftrag_nr} проверяет машину ${machineId}: свободна=${machineStatus.frei}, доступна=${isMachineAvailable(machineData)}, рабочее время=${isMachineWorkingTime(machineData)}, можно запустить=${canStartTask}`);
-
-            if (canStartTask) {
-                // Рассчитываем общее время операции с учетом количества товара
-                const totalDuration = calculateOperationDuration(auftrag, currentOperation);
+            // Если машина может начать новую задачу и в очереди есть заказы
+            if (machineStatus.canStartNewTask && machineStatus.queue.length > 0) {
+                const nextOrder = machineStatus.queue.shift(); // Берем первый из очереди (FIFO)
 
                 // Запускаем задачу
+                const totalDuration = nextOrder.anzahl * nextOrder.operation.dauer;
+
                 machineStatus.frei = false;
                 machineStatus.hasUnfinishedTask = true;
                 machineStatus.canStartNewTask = false;
-                machineStatus.waitingForWorkingTime = false;
 
                 window.simulation.activeTasks.push({
-                    auftrag_nr: auftrag.auftrag_nr,
+                    auftrag_nr: nextOrder.auftrag_nr,
                     maschine: machineId,
                     remaining: totalDuration,
-                    operation: auftragStatus.currentStep + 1,
+                    operation: window.simulation.auftraegeStatus[nextOrder.auftrag_nr].currentStep + 1,
                     paused: false,
-                    anzahl: auftrag.Anzahl || 1,
-                    dauerPerUnit: currentOperation.dauer,
-                    processedUnits: 0, // Количество уже обработанных штук
-                    totalDuration: totalDuration // Изначальная продолжительность для расчетов
+                    anzahl: nextOrder.anzahl,
+                    dauerPerUnit: nextOrder.operation.dauer,
+                    processedUnits: 0,
+                    totalDuration: totalDuration
                 });
 
-                console.log(`🚀 Starte Auftrag ${auftrag.auftrag_nr} Schritt ${auftragStatus.currentStep + 1} auf Maschine ${machineId}`);
-                console.log(`   Количество: ${auftrag.Anzahl} шт., время на единицу: ${currentOperation.dauer} мин, общее время: ${totalDuration} мин`);
-                addActivity(`Запущен заказ ${auftrag.auftrag_nr} (шаг ${auftragStatus.currentStep + 1}) на машине ${machineId} - ${auftrag.Anzahl} шт.`);
-            } else {
-                // Машина не может начать задачу - логируем причину
-                if (!machineStatus.frei) {
-                    if (!auftragStatus.waiting) {
-                        auftragStatus.waiting = true;
-                        console.log(`⏳ Заказ ${auftrag.auftrag_nr} ждет освобождения машины ${machineId}`);
-                        addActivity(`Заказ ${auftrag.auftrag_nr} ждет машину ${machineId}`);
-                    }
-                } else if (!isMachineAvailable(machineData)) {
-                    if (!auftragStatus.waiting) {
-                        auftragStatus.waiting = true;
-                        console.log(`📅 Заказ ${auftrag.auftrag_nr} ждет доступности машины ${machineId}`);
-                        addActivity(`Заказ ${auftrag.auftrag_nr} ждет доступности машины ${machineId}`);
-                    }
-                } else if (!isMachineWorkingTime(machineData)) {
-                    if (!auftragStatus.waiting) {
-                        auftragStatus.waiting = true;
-                        console.log(`🕐 Заказ ${auftrag.auftrag_nr} ждет начала рабочего времени машины ${machineId}`);
-                        addActivity(`Заказ ${auftrag.auftrag_nr} ждет рабочего времени машины ${machineId}`);
-                    }
-                }
+                console.log(`🚀 Из очереди запущен заказ ${nextOrder.auftrag_nr} на машине ${machineId}`);
             }
-        }
+        });
 
         // Удаляем завершенные заказы из очереди
         window.simulation.auftraegeQueue = window.simulation.auftraegeQueue.filter(auftrag => {
@@ -599,7 +585,8 @@ function initMaschinen(maschinen) {
             verfuegbar: isAvailable,
             canStartNewTask: isWorkingTime,
             hasUnfinishedTask: false, // Есть ли незаконченная задача
-            waitingForWorkingTime: false // Ждет ли начала рабочего времени с незаконченной задачей
+            waitingForWorkingTime: false, // Ждет ли начала рабочего времени с незаконченной задачей
+            queue: [] // Добавить очередь заказов для каждой машины
         };
 
         window.simulation.statistics.machineUtilization[m.Nr] = {
