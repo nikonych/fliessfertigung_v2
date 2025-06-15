@@ -335,7 +335,7 @@ function showOrderModal(details, order) {
     title.style.cssText = `
         margin: 0;
         color: #2c3e50;
-        font-size: 20px;
+        font-size: 24px;
     `;
 
     const closeBtn = document.createElement('button');
@@ -360,7 +360,7 @@ function showOrderModal(details, order) {
     content.style.cssText = `
         white-space: pre-wrap;
         font-family: 'Courier New', monospace;
-        font-size: 12px;
+        font-size: 16px;
         line-height: 1.4;
         color: #2c3e50;
         margin: 0;
@@ -615,7 +615,7 @@ function showMachineModal(details, machine) {
     title.style.cssText = `
         margin: 0;
         color: #2c3e50;
-        font-size: 20px;
+        font-size: 24px;
     `;
 
     const closeBtn = document.createElement('button');
@@ -640,7 +640,7 @@ function showMachineModal(details, machine) {
     content.style.cssText = `
         white-space: pre-wrap;
         font-family: 'Courier New', monospace;
-        font-size: 12px;
+        font-size: 16px;
         line-height: 1.4;
         color: #2c3e50;
         margin: 0;
