@@ -351,7 +351,8 @@ function drawMachinesWithQueues(simulation) {
         const col = index % cols;
 
         const x = LAYOUT.leftPadding + col * (LAYOUT.machineSize + LAYOUT.machineSpacing);
-        const y = startY + row * (LAYOUT.machineSize + LAYOUT.machineSpacing * 2 + 150);
+        // Увеличиваем вертикальное пространство для одноколоночной очереди
+        const y = startY + row * (LAYOUT.machineSize + LAYOUT.machineSpacing * 2 + 200);
 
         drawMachineWithQueue(x, y, machineNr, status, simulation);
     });
@@ -371,8 +372,6 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
     const size = LAYOUT.machineSize;
 
     const machineObj = simulation.maschinen?.find(m => m.Nr == machineNr);
-    console.log(machineObj)
-    console.log(status)
 
 
     // Получаем дополнительную информацию для точного определения статуса
@@ -460,81 +459,97 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
     ctx.textAlign = 'left'; // Reset text alignment
 }
 
+
 function drawMachineQueue(x, y, machineNr, simulation) {
     const machineQueue = getMachineQueue(machineNr, simulation);
 
     if (machineQueue.length === 0) {
-        ctx.fillStyle = COLORS.text.secondary;
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Keine wartenden Aufträge', x + LAYOUT.machineSize / 2, y + 15);
-        ctx.textAlign = 'left';
+        // ctx.fillStyle = COLORS.text.secondary;
+        // ctx.font = '11px Arial';
+        // ctx.textAlign = 'center';
+        // ctx.fillText('Keine wartenden Aufträge', x + LAYOUT.machineSize / 2, y + 15);
+        // ctx.textAlign = 'left';
         return;
     }
 
-    // Queue title
-    ctx.fillStyle = COLORS.text.primary;
-    ctx.font = 'bold 12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`Warteschlange M${machineNr} (${machineQueue.length})`, x + LAYOUT.machineSize / 2, y - 5);
+    // // Queue title
+    // ctx.fillStyle = COLORS.text.primary;
+    // ctx.font = 'bold 12px Arial';
+    // ctx.textAlign = 'center';
+    // ctx.fillText(`Warteschlange M${machineNr} (${machineQueue.length})`, x + LAYOUT.machineSize / 2, y - 5);
 
-    // Draw queue items
+    // Draw queue items in single column
     const maxItemsToShow = 6;
     const itemsToShow = machineQueue.slice(0, maxItemsToShow);
 
     itemsToShow.forEach((queueItem, index) => {
-        const queueX = x + (index % 2) * (LAYOUT.queueItemWidth + LAYOUT.queueItemSpacing);
-        const queueY = y + Math.floor(index / 2) * (LAYOUT.queueItemHeight + LAYOUT.queueItemSpacing);
+        // Центрируем элементы по ширине машины
+        const queueX = x + (LAYOUT.machineSize - LAYOUT.queueItemWidth) / 2;
+        const queueY = y + index * (LAYOUT.queueItemHeight + LAYOUT.queueItemSpacing);
 
         let bgColor = COLORS.task.queued;
         if (index === 0) {
-            bgColor = '#d35400';
+            bgColor = '#d35400'; // Первый элемент выделяем другим цветом
         }
 
+        // Background
         ctx.fillStyle = bgColor;
         ctx.fillRect(queueX, queueY, LAYOUT.queueItemWidth, LAYOUT.queueItemHeight);
 
+        // Border
         ctx.strokeStyle = COLORS.machine.border;
         ctx.lineWidth = 1;
         ctx.strokeRect(queueX, queueY, LAYOUT.queueItemWidth, LAYOUT.queueItemHeight);
 
+        // Order number
         ctx.fillStyle = COLORS.text.white;
         ctx.font = 'bold 9px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(queueItem.auftrag_nr, queueX + LAYOUT.queueItemWidth / 2, queueY + 10);
 
+        // Step number
         ctx.font = '8px Arial';
         ctx.fillText(`Schritt ${queueItem.stepNumber}`, queueX + LAYOUT.queueItemWidth / 2, queueY + 19);
 
+        // Duration
         if (queueItem.duration) {
             ctx.fillText(`${queueItem.duration}h`, queueX + LAYOUT.queueItemWidth / 2, queueY + 27);
         }
     });
 
+    // Show remaining items count
     if (machineQueue.length > maxItemsToShow) {
+        const remainingY = y + maxItemsToShow * (LAYOUT.queueItemHeight + LAYOUT.queueItemSpacing) + 10;
         ctx.fillStyle = COLORS.text.secondary;
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`+${machineQueue.length - maxItemsToShow} weitere`, x + LAYOUT.machineSize / 2, y + 85);
+        ctx.fillText(`+${machineQueue.length - maxItemsToShow} weitere`, x + LAYOUT.machineSize / 2, remainingY);
     }
 
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'left'; // Reset text alignment
 }
+
 
 function getMachineQueue(machineNr, simulation) {
     const queue = [];
+    const addedOrders = new Set(); // Отслеживаем уже добавленные заказы
 
     for (const auftrag of simulation.auftraegeQueue) {
         const auftragStatus = simulation.auftraegeStatus[auftrag.auftrag_nr];
 
         if (!auftragStatus || auftragStatus.completed) continue;
 
+        // Пропускаем заказы, которые уже выполняются
         const hasActiveTask = simulation.activeTasks.some(task => task.auftrag_nr === auftrag.auftrag_nr);
         if (hasActiveTask) continue;
+
+        // Пропускаем заказы, которые уже добавлены в очередь
+        if (addedOrders.has(auftrag.auftrag_nr)) continue;
 
         const currentOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep];
         if (!currentOperation) continue;
 
+        // Добавляем заказ только если текущая операция выполняется на этой машине
         if (currentOperation.maschine == machineNr) {
             queue.push({
                 auftrag_nr: auftrag.auftrag_nr,
@@ -543,24 +558,11 @@ function getMachineQueue(machineNr, simulation) {
                 priority: auftragStatus.currentStep === 0 ? 1 : 2,
                 auftrag: auftrag
             });
-        }
-
-        for (let i = auftragStatus.currentStep + 1; i < auftragStatus.arbeitsplaene.length; i++) {
-            const futureOperation = auftragStatus.arbeitsplaene[i];
-            if (futureOperation.maschine == machineNr) {
-                queue.push({
-                    auftrag_nr: auftrag.auftrag_nr,
-                    stepNumber: i + 1,
-                    duration: futureOperation.dauer,
-                    priority: 3,
-                    auftrag: auftrag,
-                    future: true
-                });
-                break;
-            }
+            addedOrders.add(auftrag.auftrag_nr);
         }
     }
 
+    // Сортировка по приоритету и номеру заказа
     queue.sort((a, b) => {
         if (a.priority !== b.priority) {
             return a.priority - b.priority;
@@ -570,6 +572,7 @@ function getMachineQueue(machineNr, simulation) {
 
     return queue;
 }
+
 
 function drawMovableActiveTasksOverview(simulation) {
     if (simulation.activeTasks.length === 0) return;
@@ -695,7 +698,7 @@ function drawMovableInfoPanel(simulation) {
             value: Object.values(simulation.maschinenStatus).filter(m => m.frei && m.verfuegbar).length
         },
         {label: 'Gesamte Maschinen', value: Object.keys(simulation.maschinenStatus).length},
-        {label: 'Simulationstag', value: getCurrentDay()},
+        {label: 'Simulationstag', value: getCurrentDay() - 730},
         {label: 'Intervall', value: `${simulation.simulationMinutesPerStep} min`}
     ];
 
