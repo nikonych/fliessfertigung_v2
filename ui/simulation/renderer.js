@@ -6,10 +6,12 @@ let animationId;
 const COLORS = {
     background: '#f5f5f5',
     machine: {
-        free: '#27ae60',
-        busy: '#e74c3c',
-        unavailable: '#95a5a6',
-        border: '#2c3e50'
+        free: '#4CAF50',           // Зеленый - свободна
+        busy: '#2196F3',           // Синий - выполняет заказ
+        nonWorking: '#9E9E9E',     // Серый - нерабочее время
+        waitingForWorkTime: '#FF9800', // Оранжевый - ждет рабочего времени с заказом
+        unavailable: '#F44336',    // Красный - недоступна по датам
+        unknown: '#795548'         // Коричневый - неопределенный статус
     },
     task: {
         waiting: '#f39c12',
@@ -49,15 +51,34 @@ const LAYOUT = {
 // Dragging state
 let isDragging = false;
 let dragTarget = null;
-let dragOffset = { x: 0, y: 0 };
-let lastMousePos = { x: 0, y: 0 };
+let dragOffset = {x: 0, y: 0};
+let lastMousePos = {x: 0, y: 0};
 
 // Panel positions (можно сохранять в localStorage если нужно)
 let panelPositions = {
-    statistics: { x: 800, y: 200 },
-    activeTasksOverview: { x: 100, y: 200 },
-    queue: { x: 500, y: 200 }
+    statistics: {x: 800, y: 200},
+    activeTasksOverview: {x: 100, y: 200},
+    queue: {x: 500, y: 200}
 };
+
+function loadPanelPositions() {
+    const saved = localStorage.getItem('panelPositions');
+    if (saved) {
+        try {
+            panelPositions = {...panelPositions, ...JSON.parse(saved)};
+        } catch (e) {
+            console.warn('Failed to load panel positions:', e);
+        }
+    }
+}
+
+function savePanelPositions() {
+    try {
+        localStorage.setItem('panelPositions', JSON.stringify(panelPositions));
+    } catch (e) {
+        console.warn('Failed to save panel positions:', e);
+    }
+}
 
 function getCurrentDay() {
     return Math.floor(window.simulation.currentTimeMinutes / (24 * 60));
@@ -78,6 +99,7 @@ export function initCanvas() {
     canvas.addEventListener('mouseleave', handleMouseUp);
 
     console.log('Canvas initialized with dragging support');
+    loadPanelPositions();
 }
 
 function resizeCanvas() {
@@ -104,7 +126,7 @@ function handleMouseDown(event) {
         dragTarget = clickedPanel.type;
         dragOffset.x = canvasPos.x - clickedPanel.x;
         dragOffset.y = canvasPos.y - clickedPanel.y;
-        lastMousePos = { x: mouseX, y: mouseY };
+        lastMousePos = {x: mouseX, y: mouseY};
         canvas.style.cursor = 'grabbing';
     }
 }
@@ -123,6 +145,7 @@ function handleMouseMove(event) {
 
         // Constrain to canvas bounds
         constrainPanelPosition(dragTarget);
+        savePanelPositions();
 
         // Redraw if not in animation loop
         if (!window.simulation?.isRunning) {
@@ -135,7 +158,7 @@ function handleMouseMove(event) {
         canvas.style.cursor = hoveredPanel ? 'grab' : 'default';
     }
 
-    lastMousePos = { x: mouseX, y: mouseY };
+    lastMousePos = {x: mouseX, y: mouseY};
 }
 
 function handleMouseUp() {
@@ -149,7 +172,7 @@ function handleMouseUp() {
 function screenToCanvas(screenX, screenY) {
     const transform = window.getCanvasTransform?.();
     const scale = transform?.scale || 1;
-    const offset = transform?.offset || { x: 0, y: 0 };
+    const offset = transform?.offset || {x: 0, y: 0};
 
     return {
         x: (screenX - offset.x) / scale,
@@ -347,46 +370,70 @@ function drawMachineWithQueue(x, y, machineNr, status, simulation) {
 function drawMachine(x, y, machineNr, status, activeTasks) {
     const size = LAYOUT.machineSize;
 
-    // Determine machine color based on status
-    let fillColor = COLORS.machine.unavailable;
-    let statusText = 'Nicht verfügbar';
+    const machineObj = simulation.maschinen?.find(m => m.Nr == machineNr);
+    console.log(machineObj)
+    console.log(status)
 
-    if (status.verfuegbar) {
-        if (status.frei) {
-            fillColor = COLORS.machine.free;
-            statusText = 'Frei';
-        } else {
-            fillColor = COLORS.machine.busy;
-            statusText = 'Beschäftigt';
-        }
+
+    // Получаем дополнительную информацию для точного определения статуса
+    const isAvailable = machineObj ? window.isMachineAvailable(machineObj) : false;
+    const isWorkingTime = machineObj ? window.isMachineWorkingTime(machineObj) : false;
+
+    let fillColor, statusText;
+
+    if (!status.verfuegbar) {
+        // Машина недоступна по датам
+        fillColor = COLORS.machine.unavailable; // Добавьте этот цвет в COLORS, если его нет
+        statusText = 'Недоступна';
+    } else if (status.hasUnfinishedTask && status.waitingForWorkingTime) {
+        // Машина имеет незаконченную задачу, но сейчас нерабочее время
+        fillColor = COLORS.machine.waitingForWorkTime; // Новый цвет для этого статуса
+        statusText = 'Ждет рабочего времени';
+    } else if (!status.frei && status.hasUnfinishedTask) {
+        // Машина активно выполняет задачу
+        fillColor = COLORS.machine.busy;
+        statusText = 'Beschäftigt';
+    } else if (status.frei && status.canStartNewTask) {
+        // Машина свободна и может принять новую задачу
+        fillColor = COLORS.machine.free;
+        statusText = 'Frei';
+    } else if (status.frei && !isWorkingTime && isAvailable) {
+        // Машина свободна, но сейчас нерабочее время
+        fillColor = COLORS.machine.nonWorking;
+        statusText = 'Нерабочее время';
+    } else {
+        // Fallback для неопределенных состояний
+        fillColor = COLORS.machine.unknown; // Добавьте этот цвет, если его нет
+        statusText = 'Неопределенный статус';
+        console.warn(`Неопределенный статус машины ${machineNr}:`, status);
     }
 
-    // Machine body
+// Machine body
     ctx.fillStyle = fillColor;
     ctx.fillRect(x, y, size, size * 0.7);
 
-    // Machine border
+// Machine border
     ctx.strokeStyle = COLORS.machine.border;
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, size, size * 0.7);
 
-    // Machine number
+// Machine number
     ctx.fillStyle = COLORS.text.white;
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(`M${machineNr}`, x + size / 2, y + 25);
 
-    // Capacity
+// Capacity
     ctx.font = '12px Arial';
     ctx.fillText(`${status.kapTag}h/Tag`, x + size / 2, y + 45);
 
-    // Status text
+// Status text
     ctx.fillStyle = COLORS.text.primary;
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(statusText, x + size / 2, y + size * 0.7 + 15);
 
-    // Active task info
+// Active task info
     const activeTask = activeTasks.find(task => task.maschine == machineNr);
     if (activeTask) {
         ctx.fillStyle = COLORS.text.secondary;
@@ -535,7 +582,7 @@ function drawMovableActiveTasksOverview(simulation) {
     // Check if panel is being hovered for drag
     const canvasPos = screenToCanvas(lastMousePos.x, lastMousePos.y);
     const isHovered = canvasPos.x >= panelX && canvasPos.x <= panelX + panelWidth &&
-                     canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
+        canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
 
     // Draw drag handle
     drawDragHandle(panelX, panelY, panelWidth, '🔄 Aktive Aufgaben', isHovered);
@@ -577,7 +624,7 @@ function drawMovableQueue(simulation) {
     // Check if panel is being hovered for drag
     const canvasPos = screenToCanvas(lastMousePos.x, lastMousePos.y);
     const isHovered = canvasPos.x >= panelX && canvasPos.x <= panelX + panelWidth &&
-                     canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
+        canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
 
     // Draw drag handle
     drawDragHandle(panelX, panelY, panelWidth, '📋 Warteschlange', isHovered);
@@ -623,7 +670,7 @@ function drawMovableInfoPanel(simulation) {
     // Check if panel is being hovered for drag
     const canvasPos = screenToCanvas(lastMousePos.x, lastMousePos.y);
     const isHovered = canvasPos.x >= panelX && canvasPos.x <= panelX + panelWidth &&
-                     canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
+        canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
 
     // Draw drag handle
     drawDragHandle(panelX, panelY, panelWidth, '📊 Статистика', isHovered);

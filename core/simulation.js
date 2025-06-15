@@ -1,12 +1,21 @@
 // core/simulation.js
 import {draw, startAnimation, stopAnimation} from "../ui/simulation/renderer.js";
 
+function calculateDayFromDate(dateString) {
+    const targetDate = new Date(dateString);
+    const baseDate = new Date('2020-01-01');
+    const diffTime = targetDate.getTime() - baseDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+}
+
+
 window.simulation = {
     simulationMinutesPerStep: 1,
     isRunning: false,
-    currentTimeMinutes: 45000 * 24 * 60, // начни с 45000 дней, пересчитанных в минуты
+    currentTimeMinutes: calculateDayFromDate('2022-01-01') * 24 * 60, // начни с 45000 дней, пересчитанных в минуты
     intervalMs: 1000, // По умолчанию 1 секунда (1 минута симуляции за секунду)
-    timer: 0,
+    timer: null,
     auftraegeQueue: [],
     activeTasks: [],
     maschinenStatus: {},
@@ -25,10 +34,14 @@ window.simulation = {
     }
 };
 
+function setSimulationStartDate(dateString) {
+    const dayNumber = calculateDayFromDate(dateString);
+    window.simulation.currentTimeMinutes = dayNumber * 24 * 60;
+}
+
 // Функция для загрузки начальных данных
 async function loadInitialData() {
     try {
-        console.log("🔄 Загрузка начальных данных...");
 
         // Если это Electron приложение, используем IPC для получения данных
         if (window.electronAPI) {
@@ -48,13 +61,11 @@ async function loadInitialData() {
                 window.simulation.maschinen = await maschinenRes.json();
                 window.simulation.arbeitsplaene = await arbeitsplaeneRes.json();
             } catch (fetchError) {
-                console.log("🧪 API недоступен, используем тестовые данные");
                 loadTestData();
                 return;
             }
         }
 
-        console.log(`✅ Загружено: ${window.simulation.auftraege.length} заказов, ${window.simulation.maschinen.length} машин`);
 
         // Инициализация машин
         initMaschinen(window.simulation.maschinen);
@@ -65,7 +76,6 @@ async function loadInitialData() {
         // Инициализация состояния заказов
         initAuftraegeStatus();
 
-        console.log(`📋 В очереди ${window.simulation.auftraegeQueue.length} заказов для обработки`);
         addActivity(`Загружено ${window.simulation.auftraege.length} заказов и ${window.simulation.maschinen.length} машин`);
 
     } catch (error) {
@@ -117,12 +127,11 @@ function getArbeitsplaeneFor(auftrag_nr) {
 
 // Тестовые данные на случай проблем с БД
 function loadTestData() {
-    console.log("🧪 Загрузка тестовых данных...");
 
     window.simulation.maschinen = [
-        {Nr: 1, Bezeichnung: "Станок А", Kap_Tag: 8, verf_von: 45000, verf_bis: 46000},
-        {Nr: 2, Bezeichnung: "Станок Б", Kap_Tag: 6, verf_von: 45000, verf_bis: 46000},
-        {Nr: 3, Bezeichnung: "Станок В", Kap_Tag: 10, verf_von: 45000, verf_bis: 46000}
+        {Nr: 1, Bezeichnung: "Станок А", Kap_Tag: 8, verf_von: "2022-01-01", verf_bis: "2023-12-31"},
+        {Nr: 2, Bezeichnung: "Станок Б", Kap_Tag: 6, verf_von: "2022-01-01", verf_bis: "2023-12-31"},
+        {Nr: 3, Bezeichnung: "Станок В", Kap_Tag: 10, verf_von: "2022-01-01", verf_bis: "2023-12-31"}
     ];
 
     window.simulation.auftraege = [
@@ -146,7 +155,6 @@ function loadTestData() {
 }
 
 function startSimulation() {
-    console.log("🚀 Запуск симуляции");
     if (window.simulation.isRunning) return;
 
     window.simulation.isRunning = true;
@@ -203,12 +211,162 @@ function getCurrentDay() {
     return Math.floor(window.simulation.currentTimeMinutes / (24 * 60));
 }
 
+// Новая функция для преобразования дня симуляции в дату
+function getCurrentDate() {
+    const dayNumber = getCurrentDay();
+    // Базовая дата - 1 января 2020 года (день 0)
+    const baseDate = new Date('2020-01-01');
+    const currentDate = new Date(baseDate);
+    currentDate.setDate(baseDate.getDate() + dayNumber);
+
+
+    return currentDate;
+}
+
+// Новая функция для преобразования строки даты в номер дня
+function dateStringToDayNumber(dateString) {
+    const date = new Date(dateString);
+    const baseDate = new Date('2020-01-01');
+    const diffTime = date.getTime() - baseDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+}
+
+
+// Исправленная функция проверки доступности машины
+function isMachineAvailable(machine) {
+    const currentDate = getCurrentDate();
+
+    let verfVon, verfBis;
+
+    // Проверяем, в каком формате данные
+    if (typeof machine.verf_von === 'number' && typeof machine.verf_bis === 'number') {
+        verfVon = excelToDate(machine.verf_von);
+        verfBis = excelToDate(machine.verf_bis);
+
+    } else {
+        // Если это строки
+        verfVon = new Date(machine.verf_von);
+        verfBis = new Date(machine.verf_bis);
+
+        // Проверяем, корректно ли распарсились даты
+        if (isNaN(verfVon.getTime()) || isNaN(verfBis.getTime())) {
+            console.error(`❌ Неправильный формат дат:`, machine.verf_von, machine.verf_bis);
+            return false;
+        }
+    }
+
+    // Сравниваем только даты (без времени)
+    const currentDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    const verfVonOnly = new Date(verfVon.getFullYear(), verfVon.getMonth(), verfVon.getDate());
+    const verfBisOnly = new Date(verfBis.getFullYear(), verfBis.getMonth(), verfBis.getDate());
+
+    const isAvailable = currentDateOnly >= verfVonOnly && currentDateOnly <= verfBisOnly;
+
+    return isAvailable;
+}
+
+function excelToDate(serial) {
+    // Excel считает дни с 1 января 1900, но имеет ошибку с високосным годом
+    // Поэтому используем 30 декабря 1899 как базовую дату
+    const excelEpoch = new Date(1899, 11, 30); // 30 декабря 1899
+    const date = new Date(excelEpoch.getTime() + serial * 86400 * 1000);
+    return date; // Возвращаем Date объект, а не строку
+}
+
+// Новая функция для получения текущего времени в дне (в минутах от начала дня)
+function getCurrentTimeInDay() {
+    return window.simulation.currentTimeMinutes % (24 * 60);
+}
+
+// Новая функция для проверки, работает ли машина в данное время
+function isMachineWorkingTime(machine) {
+    // Проверяем доступность машины по датам
+    if (!isMachineAvailable(machine)) return false;
+
+    const timeInDay = getCurrentTimeInDay();
+    const workingHours = machine.Kap_Tag * 60; // Переводим часы в минуты
+
+    // Рабочий день начинается в 08:00 (480 минут от начала дня)
+    const workStart = 8 * 60; // 08:00
+    const workEnd = workStart + workingHours;
+
+    const isWorkingTime = timeInDay >= workStart && timeInDay < workEnd;
+
+
+    return isWorkingTime;
+}
+
+// Новая функция для проверки, работает ли машина в данное время с учетом доступности
+function isMachineWorkingTimeAndAvailable(machine) {
+    // Сначала проверяем доступность машины по датам
+    if (!isMachineAvailable(machine)) return false;
+
+    // Затем проверяем рабочее время
+    const timeInDay = getCurrentTimeInDay();
+    const workingHours = machine.kapTag * 60; // Переводим часы в минуты
+
+    // Предполагаем, что рабочий день начинается в 08:00 (480 минут от начала дня)
+    const workStart = 8 * 60; // 08:00
+    const workEnd = workStart + workingHours;
+
+    return timeInDay >= workStart && timeInDay < workEnd;
+}
 
 function simulationStep() {
     // Увеличиваем виртуальное время
     window.simulation.currentTimeMinutes += getCurrentSimulationSpeed();
 
-    console.log(`📅 Tag ${getCurrentDay()}: Simulationsschritt gestartet`);
+    const currentDate = getCurrentDate();
+    debugMachineStatus();
+    // Проверяем рабочее время для всех машин
+    Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+        const machineStatus = window.simulation.maschinenStatus[machineId];
+        const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
+
+        if (!machineData) {
+            console.warn(`⚠️ Данные машины ${machineId} не найдены!`);
+            return;
+        }
+
+        // Проверяем доступность машины по датам
+        const isAvailable = isMachineAvailable(machineData);
+        // Проверяем рабочее время
+        const isWorkingTime = isMachineWorkingTime(machineData);
+
+        // Проверяем, есть ли у машины активная задача
+        const activeTask = window.simulation.activeTasks.find(task => task.maschine == machineId);
+        const hasActiveTask = Boolean(activeTask);
+
+        // Обновляем статус машины
+        machineStatus.verfuegbar = isAvailable;
+        machineStatus.hasUnfinishedTask = hasActiveTask;
+
+         // Определяем новый статус waitingForWorkingTime
+        machineStatus.waitingForWorkingTime = hasActiveTask && isAvailable && !isWorkingTime;
+
+        // Машина может начать новую задачу только если она свободна, доступна и в рабочее время
+        machineStatus.canStartNewTask = isAvailable && isWorkingTime && machineStatus.frei;
+
+
+         // Логика приостановки/возобновления задач
+        if ((!isWorkingTime || !isAvailable) && hasActiveTask) {
+            if (!activeTask.paused) {
+                activeTask.paused = true;
+                const reason = !isAvailable ? 'машина недоступна' : 'конец рабочего дня';
+                addActivity(`Машина ${machineId} остановлена (${reason})`);
+                console.log(`⏸️ Машина ${machineId} приостановила работу: ${reason}`);
+            }
+        }
+        // Если машина должна возобновить работу
+        else if (isWorkingTime && isAvailable && hasActiveTask) {
+            if (activeTask.paused) {
+                activeTask.paused = false;
+                addActivity(`Машина ${machineId} возобновила работу`);
+                console.log(`▶️ Машина ${machineId} возобновила работу`);
+            }
+        }
+    });
 
     // Завершение активных задач
     window.simulation.activeTasks = window.simulation.activeTasks.filter(task => {
@@ -218,17 +376,21 @@ function simulationStep() {
             return false;
         }
 
-        // Вычисляем, сколько времени симуляции прошло за один шаг
-        // intervalMs показывает интервал реального времени между шагами
-        // Нужно определить, сколько минут симуляции проходит за шаг
-        const currentSpeed = getCurrentSimulationSpeed(); // минут симуляции за шаг
+        // Если задача приостановлена (машина не работает), не уменьшаем время
+        if (task.paused) {
+            return true;
+        }
 
+        const currentSpeed = getCurrentSimulationSpeed();
         task.remaining -= currentSpeed;
-        console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}h übrig`);
+        console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}min übrig`);
 
         if (task.remaining <= 0) {
             // Освобождаем машину
             maschine.frei = true;
+            maschine.hasUnfinishedTask = false;
+            maschine.waitingForWorkingTime = false;
+            maschine.canStartNewTask = isMachineWorkingTime(maschine);
             console.log(`✅ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} abgeschlossen`);
             addActivity(`Операция заказа ${task.auftrag_nr} завершена на машине ${task.maschine}`);
 
@@ -278,42 +440,69 @@ function simulationStep() {
         addActivity(`Добавлено ${newAuftraege.length} новых заказов`);
     }
 
-    // Назначение новых задач - исправленная логика
+    // Назначение новых задач - с учетом рабочего времени
     for (const auftrag of window.simulation.auftraegeQueue) {
         const auftragStatus = window.simulation.auftraegeStatus[auftrag.auftrag_nr];
 
-        // Пропускаем завершенные заказы
         if (!auftragStatus || auftragStatus.completed) continue;
 
-        // Проверяем, есть ли уже активная задача для этого заказа
         const hasActiveTask = window.simulation.activeTasks.some(task => task.auftrag_nr === auftrag.auftrag_nr);
         if (hasActiveTask) continue;
 
-        // Получаем текущую операцию для выполнения
         const currentOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep];
         if (!currentOperation) continue;
 
         const machineId = currentOperation.maschine;
-        const machine = window.simulation.maschinenStatus[machineId];
+        const machineStatus = window.simulation.maschinenStatus[machineId];
+        const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
 
-        if (machine && machine.frei && machine.verfuegbar) {
-            // Запускаем текущую операцию
-            machine.frei = false;
+        if (!machineStatus || !machineData) {
+            console.warn(`⚠️ Машина ${machineId} не найдена!`);
+            continue;
+        }
+
+        // ИСПРАВЛЕННАЯ ПРОВЕРКА: машина свободна И доступна И в рабочее время
+        const canStartTask = machineStatus.canStartNewTask;
+
+        console.log(`🎯 Заказ ${auftrag.auftrag_nr} проверяет машину ${machineId}: свободна=${machineStatus.frei}, доступна=${isMachineAvailable(machineData)}, рабочее время=${isMachineWorkingTime(machineData)}, можно запустить=${canStartTask}`);
+
+        if (canStartTask) {
+            // Запускаем задачу
+            machineStatus.frei = false;
+            machineStatus.hasUnfinishedTask = true;
+            machineStatus.canStartNewTask = false;
+            machineStatus.waitingForWorkingTime = false;
+
             window.simulation.activeTasks.push({
                 auftrag_nr: auftrag.auftrag_nr,
                 maschine: machineId,
                 remaining: currentOperation.dauer * 60,
-                operation: auftragStatus.currentStep + 1 // Для отображения
+                operation: auftragStatus.currentStep + 1,
+                paused: false
             });
 
             console.log(`🚀 Starte Auftrag ${auftrag.auftrag_nr} Schritt ${auftragStatus.currentStep + 1} auf Maschine ${machineId} (Dauer: ${currentOperation.dauer}h)`);
             addActivity(`Запущен заказ ${auftrag.auftrag_nr} (шаг ${auftragStatus.currentStep + 1}) на машине ${machineId}`);
-        } else if (machine && !machine.frei) {
-            // Машина занята - заказ ждет
-            if (!auftragStatus.waiting) {
-                auftragStatus.waiting = true;
-                console.log(`⏳ Заказ ${auftrag.auftrag_nr} ждет освобождения машины ${machineId}`);
-                addActivity(`Заказ ${auftrag.auftrag_nr} ждет машину ${machineId}`);
+        } else {
+            // Машина не может начать задачу - логируем причину
+            if (!machineStatus.frei) {
+                if (!auftragStatus.waiting) {
+                    auftragStatus.waiting = true;
+                    console.log(`⏳ Заказ ${auftrag.auftrag_nr} ждет освобождения машины ${machineId}`);
+                    addActivity(`Заказ ${auftrag.auftrag_nr} ждет машину ${machineId}`);
+                }
+            } else if (!isMachineAvailable(machineData)) {
+                if (!auftragStatus.waiting) {
+                    auftragStatus.waiting = true;
+                    console.log(`📅 Заказ ${auftrag.auftrag_nr} ждет доступности машины ${machineId}`);
+                    addActivity(`Заказ ${auftrag.auftrag_nr} ждет доступности машины ${machineId}`);
+                }
+            } else if (!isMachineWorkingTime(machineData)) {
+                if (!auftragStatus.waiting) {
+                    auftragStatus.waiting = true;
+                    console.log(`🕐 Заказ ${auftrag.auftrag_nr} ждет начала рабочего времени машины ${machineId}`);
+                    addActivity(`Заказ ${auftrag.auftrag_nr} ждет рабочего времени машины ${machineId}`);
+                }
             }
         }
     }
@@ -340,47 +529,90 @@ function simulationStep() {
     draw();
 }
 
+function debugMachineStatus() {
+    console.log("🔍 === ОТЛАДКА СОСТОЯНИЯ МАШИН ===");
+    const currentTime = getCurrentTimeInDay();
+    const currentHour = Math.floor(currentTime / 60);
+    const currentMinute = currentTime % 60;
+
+    console.log(`⏰ Текущее время в симуляции: ${currentHour}:${String(currentMinute).padStart(2, '0')}`);
+
+    Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+        const status = window.simulation.maschinenStatus[machineId];
+        const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
+
+        if (machineData) {
+            const isAvailable = isMachineAvailable(machineData);
+            const isWorkingTime = isMachineWorkingTime(machineData);
+            const workStart = 8;
+            const workEnd = 8 + machineData.Kap_Tag;
+
+            console.log(`  Машина ${machineId}:`);
+            console.log(`    - Рабочие часы: ${workStart}:00 - ${workEnd}:00`);
+            console.log(`    - Доступна по датам: ${isAvailable}`);
+            console.log(`    - В рабочее время: ${isWorkingTime}`);
+            console.log(`    - Свободна: ${status.frei}`);
+            console.log(`    - Может начать задачу: ${status.canStartNewTask}`);
+        }
+    });
+    console.log("=================================");
+}
+
 function initMaschinen(maschinen) {
     console.log("🏭 Инициализация машин...");
     window.simulation.maschinenStatus = {};
     window.simulation.statistics.machineUtilization = {};
 
     for (const m of maschinen) {
-        // Проверяем, доступна ли машина в текущий день
-        const isAvailable = getCurrentDay() >= m.verf_von && getCurrentDay() <= m.verf_bis;
+        const isAvailable = isMachineAvailable(m);
+        const isWorkingTime = isAvailable && isMachineWorkingTime(m);
 
         window.simulation.maschinenStatus[m.Nr] = {
-            frei: isAvailable,
+            frei: true, // Изначально все машины свободны
             kapTag: m.Kap_Tag,
             bezeichnung: m.Bezeichnung,
-            verfuegbar: isAvailable
+            verfuegbar: isAvailable,
+            canStartNewTask: isWorkingTime,
+            hasUnfinishedTask: false, // Есть ли незаконченная задача
+            waitingForWorkingTime: false // Ждет ли начала рабочего времени с незаконченной задачей
         };
 
-        // Инициализация статистики использования
         window.simulation.statistics.machineUtilization[m.Nr] = {
             totalTime: 0,
             workingTime: 0,
+            availableTime: 0,
             utilization: 0
         };
 
-        console.log(`🔧 Машина ${m.Nr} (${m.Bezeichnung}): ${isAvailable ? 'доступна' : 'недоступна'}`);
+        const currentDate = getCurrentDate().toISOString().split('T')[0];
+        const currentTime = `${Math.floor(getCurrentTimeInDay() / 60)}:${String(getCurrentTimeInDay() % 60).padStart(2, '0')}`;
+
+        console.log(`🔧 Машина ${m.Nr} (${m.Bezeichnung}): доступна=${isAvailable}, рабочее время=${isWorkingTime}, дата=${currentDate}, время=${currentTime}`);
     }
 }
 
 function updateMachineUtilization() {
     Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
         const machine = window.simulation.maschinenStatus[machineId];
+        const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
         const utilization = window.simulation.statistics.machineUtilization[machineId];
 
-        if (utilization) {
-            utilization.totalTime++;
+        if (utilization && machineData) {
+            const isWorkingTime = isMachineWorkingTimeAndAvailable(machineData);
 
-            if (!machine.frei) {
-                utilization.workingTime++;
+            if (isWorkingTime) {
+                utilization.availableTime++;
+
+                if (!machine.frei) {
+                    utilization.workingTime++;
+                }
             }
 
-            utilization.utilization = utilization.totalTime > 0 ?
-                (utilization.workingTime / utilization.totalTime * 100).toFixed(1) : 0;
+            utilization.totalTime++;
+
+            // Рассчитываем использование относительно доступного времени
+            utilization.utilization = utilization.availableTime > 0 ?
+                (utilization.workingTime / utilization.availableTime * 100).toFixed(1) : 0;
         }
     });
 }
@@ -432,10 +664,18 @@ export {
     startSimulation,
     stopSimulation,
     resetSimulation,
-    addActivity
+    addActivity,
+    getCurrentTimeInDay,
+    isMachineWorkingTime,
+    getCurrentDate,
+    isMachineAvailable,
+    isMachineWorkingTimeAndAvailable
 };
 
 // Автоматическая инициализация при загрузке (если не в модульной среде)
 if (typeof window !== 'undefined') {
     initialize().catch(console.error);
+    window.isMachineAvailable = isMachineAvailable;
+    window.isMachineWorkingTimeAndAvailable = isMachineWorkingTimeAndAvailable;
+    window.isMachineWorkingTime = isMachineWorkingTime;
 }

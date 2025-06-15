@@ -17,7 +17,7 @@
             background-color: #f5f5f5;
             width: 100vw;
             height: 100vh;
-            z-index: 0; /* Ensure canvas is below UI elements */
+            z-index: 0;
             position: absolute;
             top: 0;
             left: 0;
@@ -40,50 +40,41 @@
             background-color: #00447a;
         }
 
-        #auftragPanel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 280px; /* Reduced to account for padding */
-            height: 100%;
-            background: white;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
-            overflow-y: auto;
-            transform: translateX(-100%); /* Hide panel off-screen */
-            transition: transform 0.3s ease;
-            padding: 15px;
-            z-index: 100;
-            box-sizing: border-box; /* Include padding in width */
-            border: 2px solid red; /* Temporary for debugging */
-        }
-
-        #auftragPanel.open {
-            transform: translateX(0); /* Slide in */
-        }
-
-        #toggleAuftragBtn {
-            position: fixed; /* Independent of panel */
-            top: 20px;
-            left: 0; /* Always at screen's left edge */
-            width: 40px;
-            height: 40px;
-            border: none;
-            background-color: #005fa3;
+        /* Дата и время в верхнем правом углу */
+        #datetime-display {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            font-size: 20px;
-            border-radius: 0 8px 8px 0;
-            cursor: pointer;
-            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
-            z-index: 101; /* Above everything */
-            display: block;
-            line-height: 40px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 15;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-width: 200px;
             text-align: center;
-            background: #ff0000; /* Bright red for debugging */
         }
 
-        #toggleAuftragBtn:hover {
-            background-color: #00447a;
+        #datetime-display .date {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            opacity: 0.9;
         }
+
+        #datetime-display .time {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        #datetime-display .day-info {
+            font-size: 12px;
+            margin-top: 4px;
+            opacity: 0.8;
+        }
+
 
         #auftragContainer table {
             width: 100%;
@@ -104,7 +95,7 @@
 
         #controls {
             position: absolute;
-            top: 10px;
+            top: 20px;
             right: 10px;
             z-index: 10;
             background: white;
@@ -112,11 +103,33 @@
             border-radius: 8px;
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
         }
+
+        /* Статус рабочего времени */
+        #work-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 15;
+            border-left: 4px solid #27ae60;
+            min-width: 180px;
+        }
+
     </style>
 </head>
 
 <body>
 <button id="back-button" onclick="window.location.href='home.html'">← Zurück</button>
+
+<!-- Дата и время -->
+<div id="datetime-display">
+    <div class="date" id="current-date">Загрузка...</div>
+    <div class="time" id="current-time">--:--</div>
+    <div class="day-info" id="day-info">День 0</div>
+</div>
 
 <div id="controls">
     <button id="startBtn">Start</button>
@@ -139,6 +152,55 @@
 </div>
 
 <canvas id="canvas"></canvas>
+
+<script type="module">
+// Функции для работы с датой и временем
+function updateDateTime() {
+    if (!window.simulation) return;
+
+    const simulation = window.simulation;
+    const totalMinutes = simulation.currentTimeMinutes || 0;
+
+    // Вычисляем дни, часы и минуты
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+
+    // Начальная дата (например, 1 января 2025)
+    const startDate = new Date(2022, 0, 1); // месяц 0 = январь
+    const currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() + days);
+
+    // Форматируем дату
+    const dateOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    };
+    const formattedDate = currentDate.toLocaleDateString('de-DE', dateOptions);
+
+    // Форматируем время
+    const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
+    // Обновляем элементы
+    document.getElementById('current-date').textContent = formattedDate;
+    document.getElementById('current-time').textContent = timeString;
+    document.getElementById('day-info').textContent = `Симуляционный день ${days + 1}`;
+
+}
+
+// Обновляем каждую секунду
+setInterval(updateDateTime, 1000);
+
+// Обновляем сразу при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+    updateDateTime();
+});
+
+// Подключаем к глобальному обновлению симуляции
+window.addEventListener('simulationUpdate', updateDateTime);
+</script>
 
 <script type="module" src="../ui/simulation/canvas.js"></script>
 <script type="module" src="../core/simulation.js"></script>

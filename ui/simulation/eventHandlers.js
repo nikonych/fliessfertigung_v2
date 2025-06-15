@@ -7,7 +7,6 @@ export function setupEventListeners() {
     let firstBlock = null; // Track the first block for swapping
 
     canvas.addEventListener("mousedown", (e) => {
-        console.log("Mouse down:", e.offsetX, e.offsetY);
         const mx = (e.offsetX - state.offsetX) / state.scale;
         const my = (e.offsetY - state.offsetY) / state.scale;
 
@@ -16,7 +15,6 @@ export function setupEventListeners() {
         );
 
         if (clickedBlock) {
-            console.log("Block selected:", clickedBlock.id);
             if (clickedBlock.type === "auftrag") {
                 firstBlock = clickedBlock; // Set first block for potential swap
                 if (!e.shiftKey) {
@@ -45,7 +43,6 @@ export function setupEventListeners() {
                 state.currentDragBlock.offsetY = my - state.currentDragBlock.y;
             }
         } else {
-            console.log("Starting map drag");
             state.activeInfoBlockId = null;
             state.dragMap = true;
             state.dragStart.x = e.offsetX;
@@ -67,12 +64,10 @@ export function setupEventListeners() {
             state.offsetY += dy;
             state.dragStart.x = e.offsetX;
             state.dragStart.y = e.offsetY;
-            console.log("Panning:", state.offsetX, state.offsetY);
         }
     });
 
     canvas.addEventListener("mouseup", () => {
-        console.log("Mouse up");
         if (state.currentDragBlock && state.currentDragBlock.dragging) {
             if (state.currentDragBlock.type === "auftrag") {
                 // Determine which group the block was dropped into
@@ -131,7 +126,6 @@ export function setupEventListeners() {
     });
 
     canvas.addEventListener("mouseleave", () => {
-        console.log("Mouse leave");
         if (state.currentDragBlock) {
             if (state.currentDragBlock.type === "auftrag") {
                 // Snap back to original group
@@ -146,7 +140,6 @@ export function setupEventListeners() {
 
     canvas.addEventListener("wheel", (e) => {
         e.preventDefault();
-        console.log("Wheel event:", e.deltaY);
         const zoomFactor = 1.1;
         const mouseX = e.offsetX;
         const mouseY = e.offsetY;
