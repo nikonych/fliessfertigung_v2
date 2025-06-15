@@ -385,45 +385,42 @@
 
 
 <script type="module">
-    console.log("🚀 Скрипт daten.html загружается...");
+    console.log("🚀 Skript daten.html wird geladen...");
 
-
-    // Проверяем состояние electronAPI при загрузке
-    console.log("🔍 Проверка electronAPI при загрузке:", {
+    // Überprüfen Sie den Zustand von electronAPI beim Laden
+    console.log("🔍 Überprüfung von electronAPI beim Laden:", {
         exists: !!window.electronAPI,
-        keys: window.electronAPI ? Object.keys(window.electronAPI) : 'undefined'
+        keys: window.electronAPI ? Object.keys(window.electronAPI) : 'undefiniert'
     });
 
     import {showMaschinen} from "../ui/maschine.js";
     import {showAuftraege} from "../ui/auftraege.js";
     import {showArbeitsplaene} from "../ui/arbeitsplane.js";
 
-
-
     document.addEventListener("DOMContentLoaded", () => {
-        console.log("🔄 DOM Content Loaded - Starting initialization");
+        console.log("🔄 DOM Content Loaded - Initialisierung beginnt");
 
-        // Проверяем доступность electronAPI
+        // Überprüfen Sie die Verfügbarkeit von electronAPI
         if (!window.electronAPI) {
-            console.error("❌ electronAPI не доступен!");
+            console.error("❌ electronAPI ist nicht verfügbar!");
             return;
         }
 
-        console.log("✅ electronAPI доступен:", Object.keys(window.electronAPI));
+        console.log("✅ electronAPI ist verfügbar:", Object.keys(window.electronAPI));
 
-        // Загружаем данные для активной вкладки
-        console.log("🔄 Загружаем машины...");
+        // Daten für den aktiven Tab laden
+        console.log("🔄 Maschinen werden geladen...");
         showMaschinen("maschinen-container");
 
         const tabs = document.querySelectorAll(".tab");
         const sections = document.querySelectorAll(".section");
 
-        console.log(`📋 Найдено ${tabs.length} вкладок и ${sections.length} секций`);
+        console.log(`📋 ${tabs.length} Tabs und ${sections.length} Sektionen gefunden`);
 
         tabs.forEach(tab => {
             tab.addEventListener("click", () => {
                 const target = tab.getAttribute("data-tab");
-                console.log(`🖱️ Клик по вкладке: ${target}`);
+                console.log(`🖱️ Tab-Klick: ${target}`);
 
                 tabs.forEach(t => t.classList.remove("active"));
                 sections.forEach(s => s.classList.remove("active"));
@@ -431,15 +428,15 @@
                 tab.classList.add("active");
                 document.getElementById(target).classList.add("active");
 
-                // Загружаем данные при переключении вкладок
+                // Daten beim Tab-Wechsel laden
                 if (target === "auftrage") {
-                    console.log("🔄 Загружаем заказы...");
+                    console.log("🔄 Aufträge werden geladen...");
                     showAuftraege("auftrage-container");
                 } else if (target === "arbeitsplan") {
-                    console.log("🔄 Загружаем рабочие планы...");
+                    console.log("🔄 Arbeitspläne werden geladen...");
                     showArbeitsplaene("arbeitsplan-container");
                 } else if (target === "maschinen") {
-                    console.log("🔄 Перезагружаем машины...");
+                    console.log("🔄 Maschinen werden neu geladen...");
                     showMaschinen("maschinen-container");
                 }
             });

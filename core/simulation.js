@@ -69,11 +69,11 @@ async function loadInitialData() {
                 return;
             }
         }
+        console.log("📋 Überprüfung der geladenen Daten:");
+        console.log(`- Aufträge: ${window.simulation.auftraege.length}`);
+        console.log(`- Maschinen: ${window.simulation.maschinen.length}`);
+        console.log(`- Arbeitspläne: ${window.simulation.arbeitsplaene.length}`);
 
-        console.log("📋 Проверка загруженных данных:");
-        console.log(`- Заказов: ${window.simulation.auftraege.length}`);
-        console.log(`- Машин: ${window.simulation.maschinen.length}`);
-        console.log(`- Планов работ: ${window.simulation.arbeitsplaene.length}`);
 
 
         // Инициализация машин
@@ -85,13 +85,13 @@ async function loadInitialData() {
         // Инициализация состояния заказов
         initAuftraegeStatus();
 
-        addActivity(`Загружено ${window.simulation.auftraege.length} заказов и ${window.simulation.maschinen.length} машин`);
+        addActivity(`Es wurden ${window.simulation.auftraege.length} Aufträge und ${window.simulation.maschinen.length} Maschinen geladen`);
 
-    } catch (error) {
-        console.error("❌ Ошибка при загрузке данных:", error);
-        addActivity("Ошибка загрузки данных, используются тестовые данные");
-        loadTestData();
-    }
+   } catch (error) {
+    console.error("❌ Fehler beim Laden der Daten:", error);
+    addActivity("Fehler beim Laden der Daten, Testdaten werden verwendet");
+    loadTestData();
+}
 }
 
 function addActivity(message) {
@@ -106,18 +106,18 @@ function addActivity(message) {
 
 // Функция для фильтрации и загрузки активных заказов
 function filterAndLoadActiveAuftraege() {
-    console.log("🔍 Фильтрация активных заказов...");
+    console.log("🔍 Filterung der aktiven Aufträge...");
 
     const currentDay = getCurrentDay();
-    console.log(`📅 Текущий день симуляции: ${currentDay}`);
+    console.log(`📅 Aktueller Simulations-Tag: ${currentDay}`);
 
     const allOrders = window.simulation.auftraege || [];
-    console.log(`📦 Всего заказов для проверки: ${allOrders.length}`);
+    console.log(`📦 Gesamtanzahl der zu prüfenden Aufträge: ${allOrders.length}`);
 
-    // ИСПРАВЛЕНИЕ: Увеличиваем окно загрузки заказов
+    // KORREKTUR: Erweiterung des Ladefensters für Aufträge
     window.simulation.auftraegeQueue = allOrders.filter(auftrag => {
         if (!auftrag.auftrag_nr) {
-            console.warn(`⚠️ Заказ без номера:`, auftrag);
+            console.warn(`⚠️ Auftrag ohne Nummer:`, auftrag);
             return false;
         }
 
@@ -127,7 +127,7 @@ function filterAndLoadActiveAuftraege() {
         } else if (typeof auftrag.Start === 'string') {
             startDay = calculateDayFromDate(auftrag.Start);
         } else {
-            console.warn(`⚠️ Неправильный формат даты старта для заказа ${auftrag.auftrag_nr}:`, auftrag.Start);
+            console.warn(`⚠️ Ungültiges Startdatum für Auftrag ${auftrag.auftrag_nr}:`, auftrag.Start);
             return false;
         }
 
@@ -136,46 +136,47 @@ function filterAndLoadActiveAuftraege() {
         );
 
         if (!hasWorkPlan) {
-            console.warn(`⚠️ Нет рабочего плана для заказа ${auftrag.auftrag_nr}`);
+            console.warn(`⚠️ Kein Arbeitsplan für Auftrag ${auftrag.auftrag_nr}`);
             return false;
         }
 
-        // ИСПРАВЛЕНИЕ: Загружаем ВСЕ заказы, не только те что должны стартовать в ближайшие 7 дней
-        // Заказы будут обрабатываться когда придет их время
-        const shouldBeLoaded = true; // Загружаем все заказы
+        // KORREKTUR: Alle Aufträge laden, nicht nur die mit Start in den nächsten 7 Tagen
+        // Aufträge werden verarbeitet, sobald ihre Zeit gekommen ist
+        const shouldBeLoaded = true; // Alle Aufträge werden geladen
 
-        console.log(`  📋 Заказ ${auftrag.auftrag_nr}: старт=${startDay}, загружен=${shouldBeLoaded}`);
+        console.log(`  📋 Auftrag ${auftrag.auftrag_nr}: Start=${startDay}, geladen=${shouldBeLoaded}`);
 
         return shouldBeLoaded;
     });
 
-    console.log(`✅ Загружено заказов: ${window.simulation.auftraegeQueue.length}`);
+    console.log(`✅ Geladene Aufträge: ${window.simulation.auftraegeQueue.length}`);
 }
+
 
 // Новая функция для инициализации состояния заказов
 function initAuftraegeStatus() {
-    console.log("🔄 Инициализация статусов заказов...");
+    console.log("🔄 Initialisierung der Auftragsstatus...");
 
     window.simulation.auftraegeStatus = {};
 
     if (!window.simulation.auftraegeQueue || window.simulation.auftraegeQueue.length === 0) {
-        console.warn("⚠️ Нет заказов в очереди для инициализации!");
+        console.warn("⚠️ Keine Aufträge in der Warteschlange zur Initialisierung!");
         return;
     }
 
     for (const auftrag of window.simulation.auftraegeQueue) {
-        // Получаем рабочие планы для заказа
+        // Hole die Arbeitspläne für den Auftrag
         const arbeitsplaene = getArbeitsplaeneFor(auftrag.auftrag_nr)
             .sort((a, b) => (a.reihenfolge || 0) - (b.reihenfolge || 0));
 
         if (arbeitsplaene.length === 0) {
-            console.warn(`⚠️ Нет рабочих планов для заказа ${auftrag.auftrag_nr}`);
+            console.warn(`⚠️ Keine Arbeitspläne für Auftrag ${auftrag.auftrag_nr}`);
             continue;
         }
 
         const currentTime = window.simulation.currentTimeMinutes;
 
-        // Создаем статус заказа
+        // Erstelle den Auftragsstatus
         window.simulation.auftraegeStatus[auftrag.auftrag_nr] = {
             currentStep: 0,
             arbeitsplaene: arbeitsplaene,
@@ -183,14 +184,14 @@ function initAuftraegeStatus() {
             waiting: false,
             anzahl: auftrag.Anzahl || 1,
             enteredSystemTime: currentTime,
-            waitingStartTime: currentTime, // Начинаем ожидание сразу
+            waitingStartTime: currentTime, // Wartezeit beginnt sofort
             totalWaitingTime: 0,
             currentOperationStartTime: null,
             operationHistory: [],
             bufferEntryTime: null,
         };
 
-        // Инициализируем статистику заказа
+        // Initialisiere Statistik für den Auftrag
         window.simulation.statistics.orderStatistics[auftrag.auftrag_nr] = {
             startTime: null,
             endTime: null,
@@ -204,11 +205,12 @@ function initAuftraegeStatus() {
             enteredSystemTime: currentTime
         };
 
-        console.log(`✅ Инициализирован заказ ${auftrag.auftrag_nr} с ${arbeitsplaene.length} операциями`);
+        console.log(`✅ Auftrag ${auftrag.auftrag_nr} mit ${arbeitsplaene.length} Operationen initialisiert`);
     }
 
-    console.log(`✅ Инициализировано ${Object.keys(window.simulation.auftraegeStatus).length} заказов`);
+    console.log(`✅ Insgesamt ${Object.keys(window.simulation.auftraegeStatus).length} Aufträge initialisiert`);
 }
+
 
 // Функция для получения рабочих планов для конкретного заказа
 function getArbeitsplaeneFor(auftrag_nr) {
@@ -220,7 +222,7 @@ function calculateOperationDuration(auftrag, arbeitsplan) {
     const dauerPerUnit = arbeitsplan.dauer || 0; // Время на единицу товара в минутах
     const totalDauer = anzahl * dauerPerUnit; // Общее время операции
 
-    console.log(`📊 Расчет времени для заказа ${auftrag.auftrag_nr}: ${anzahl} шт × ${dauerPerUnit} мин = ${totalDauer} мин`);
+    console.log(`📊 Zeitberechnung für Auftrag ${auftrag.auftrag_nr}: ${anzahl} Stk × ${dauerPerUnit} Min = ${totalDauer} Min`);
 
     return totalDauer;
 }
@@ -228,11 +230,12 @@ function calculateOperationDuration(auftrag, arbeitsplan) {
 // Тестовые данные на случай проблем с БД
 function loadTestData() {
 
-    window.simulation.maschinen = [
-        {Nr: 1, Bezeichnung: "Станок А", Kap_Tag: 8, verf_von: "2022-01-01", verf_bis: "2023-12-31"},
-        {Nr: 2, Bezeichnung: "Станок Б", Kap_Tag: 6, verf_von: "2022-01-01", verf_bis: "2023-12-31"},
-        {Nr: 3, Bezeichnung: "Станок В", Kap_Tag: 10, verf_von: "2022-01-01", verf_bis: "2023-12-31"}
+   window.simulation.maschinen = [
+        {Nr: 1, Bezeichnung: "Maschine A", Kap_Tag: 8, verf_von: "2022-01-01", verf_bis: "2023-12-31"},
+        {Nr: 2, Bezeichnung: "Maschine B", Kap_Tag: 6, verf_von: "2022-01-01", verf_bis: "2023-12-31"},
+        {Nr: 3, Bezeichnung: "Maschine C", Kap_Tag: 10, verf_von: "2022-01-01", verf_bis: "2023-12-31"}
     ];
+
 
     window.simulation.auftraege = [
         {auftrag_nr: "A001", Anzahl: 100, Start: 45000},
@@ -251,7 +254,7 @@ function loadTestData() {
     initMaschinen(window.simulation.maschinen);
     filterAndLoadActiveAuftraege();
     initAuftraegeStatus();
-    addActivity("Тестовые данные загружены");
+    addActivity("Testdaten wurden geladen");
 }
 
 function startSimulation() {
@@ -264,7 +267,7 @@ function startSimulation() {
     }
     window.simulation.timer = setInterval(simulationStep, window.simulation.intervalMs);
 
-    addActivity("Симуляция запущена");
+    addActivity("Simulation gestartet");
     startAnimation();
 }
 
@@ -273,13 +276,13 @@ function stopSimulation() {
     window.simulation.isRunning = false;
     clearInterval(window.simulation.timer);
 
-    addActivity("Симуляция остановлена");
+    addActivity("Simulation gestoppt");
     stopAnimation();
     draw(); // Финальная отрисовка
 }
 
 async function resetSimulation() {
-    console.log("🔄 Сброс симуляции");
+    console.log("🔄 Simulation zurücksetzen");
     stopSimulation();
 
     // Сброс состояния симуляции
@@ -304,8 +307,7 @@ async function resetSimulation() {
 
     // Перезагружаем данные
     await loadInitialData();
-    addActivity("Симуляция сброшена");
-
+    console.log("🔄 Simulation zurücksetzen");
     // Обновляем отображение
     draw();
 }
@@ -348,7 +350,7 @@ function isMachineAvailable(machine) {
 
         // Проверяем, корректно ли распарсились даты
         if (isNaN(verfVon.getTime()) || isNaN(verfBis.getTime())) {
-            console.error(`❌ Неправильный формат дат:`, machine.verf_von, machine.verf_bis);
+        console.error(`❌ Ungültiges Datumsformat:`, machine.verf_von, machine.verf_bis);
             return false;
         }
     }
@@ -417,8 +419,9 @@ function checkSimulationCompletion() {
     const currentDay = getCurrentDay();
     const hasActiveTasks = window.simulation.activeTasks.length > 0;
 
-    console.log(`🔍 Проверка завершения симуляции (день ${currentDay}):`);
-    console.log(`  - Активных задач: ${window.simulation.activeTasks.length}`);
+    console.log(`🔍 Überprüfung des Simulationsendes (Tag ${currentDay}):`);
+    console.log(`  - Aktive Aufgaben: ${window.simulation.activeTasks.length}`);
+
 
     // Получаем все заказы, которые уже должны были начаться
     const readyOrders = window.simulation.auftraegeQueue.filter(auftrag => {
@@ -439,8 +442,9 @@ function checkSimulationCompletion() {
         return status && !status.completed;
     });
 
-    console.log(`  - Заказов готовых к обработке: ${readyOrders.length}`);
-    console.log(`  - Незавершенных готовых заказов: ${incompleteReadyOrders.length}`);
+    console.log(`  - Aufträge bereit zur Verarbeitung: ${readyOrders.length}`);
+    console.log(`  - Nicht abgeschlossene, aber bereite Aufträge: ${incompleteReadyOrders.length}`);
+
 
     // Проверяем очереди машин на наличие готовых заказов
     let totalQueuedReadyOrders = 0;
@@ -460,7 +464,7 @@ function checkSimulationCompletion() {
         totalQueuedReadyOrders += queuedReadyOrders.length;
     });
 
-    console.log(`  - Готовых заказов в очередях машин: ${totalQueuedReadyOrders}`);
+    console.log(`  - Bereite Aufträge in den Maschinenwarteschlangen: ${totalQueuedReadyOrders}`);
 
     // Проверяем, есть ли заказы, которые еще не начались
     const futureOrders = window.simulation.auftraegeQueue.filter(auftrag => {
@@ -473,7 +477,7 @@ function checkSimulationCompletion() {
         return startDay > currentDay;
     });
 
-    console.log(`  - Заказов в будущем: ${futureOrders.length}`);
+    console.log(`  - Aufträge in der Zukunft: ${futureOrders.length}`);
 
     // УСЛОВИЕ ЗАВЕРШЕНИЯ: нет активных задач, нет незавершенных готовых заказов, нет готовых заказов в очередях
     const shouldComplete = !hasActiveTasks &&
@@ -496,10 +500,11 @@ function checkSimulationCompletion() {
                 const nextOrderDay = Math.min(...nextOrderStartDays);
                 const minutesToJump = (nextOrderDay - currentDay) * 24 * 60;
 
-                console.log(`⏭️ Перепрыгиваем на день ${nextOrderDay} (${minutesToJump} минут)`);
-                window.simulation.currentTimeMinutes += minutesToJump;
-                addActivity(`Переход ко дню ${nextOrderDay}`);
-                return false; // Продолжаем симуляцию
+            console.log(`⏭️ Überspringe zu Tag ${nextOrderDay} (${minutesToJump} Minuten)`);
+            window.simulation.currentTimeMinutes += minutesToJump;
+            addActivity(`Wechsel zu Tag ${nextOrderDay}`);
+            return false;
+             // Продолжаем симуляцию
             }
         }
 
@@ -507,8 +512,9 @@ function checkSimulationCompletion() {
         const completedOrdersCount = Object.values(window.simulation.auftraegeStatus)
             .filter(status => status.completed).length;
 
-        console.log("🎉 ВСЕ ЗАКАЗЫ ЗАВЕРШЕНЫ! ОСТАНАВЛИВАЕМ СИМУЛЯЦИЮ НЕМЕДЛЕННО!");
-        addActivity(`🎉 СИМУЛЯЦИЯ ЗАВЕРШЕНА! Обработано заказов: ${completedOrdersCount}`);
+        console.log("🎉 ALLE AUFTRÄGE ABGESCHLOSSEN! SIMULATION WIRD SOFORT GESTOPPT!");
+        addActivity(`🎉 SIMULATION BEENDET! Verarbeitete Aufträge: ${completedOrdersCount}`);
+
 
         stopSimulation();
         return true; // Завершаем симуляцию
@@ -519,8 +525,8 @@ function checkSimulationCompletion() {
 
 // 2. ИСПРАВЛЕННАЯ функция simulationStep с улучшенной логикой
 function simulationStep() {
-    console.log("🔄 === НАЧАЛО ШАГА СИМУЛЯЦИИ ===");
-    console.log(`⏰ Текущее время: ${window.simulation.currentTimeMinutes} мин (день ${getCurrentDay()})`);
+    console.log("🔄 === START DES SIMULATIONSSCHRITTS ===");
+    console.log(`⏰ Aktuelle Zeit: ${window.simulation.currentTimeMinutes} Min (Tag ${getCurrentDay()})`);
 
     const totalSpeed = getCurrentSimulationSpeed();
     const maxStepSize = 60;
@@ -532,37 +538,38 @@ function simulationStep() {
         window.simulation.currentTimeMinutes += currentStepSize;
         remainingTime -= currentStepSize;
 
-        // Обновляем статус машин
+        // Aktualisiere Maschinenstatus
         updateMachineStatuses();
 
-        // Добавляем готовые заказы в очереди машин
+        // Füge bereite Aufträge in Maschinenwarteschlangen ein
         processReadyOrders();
 
-        // Запускаем задачи с машин
+        // Starte neue Aufgaben von Maschinen
         startNewTasks();
 
-        // Обрабатываем активные задачи
+        // Verarbeite aktive Aufgaben
         processActiveTasks();
 
-        // Очищаем завершенные заказы
+        // Bereinige abgeschlossene Aufträge
         cleanupCompletedOrders();
 
         updateMachineUtilization();
 
-        // *** ДОБАВЛЯЕМ ПРОВЕРКУ ЗАВЕРШЕНИЯ ВНУТРИ ЦИКЛА ***
-        // Проверяем завершение симуляции после каждого мини-шага
+        // *** FÜGE ÜBERPRÜFUNG AUF SIMULATIONSENDE INNERHALB DER SCHLEIFE HINZU ***
+        // Überprüfe das Ende der Simulation nach jedem Mini-Schritt
         const completed = checkSimulationCompletion();
         if (completed) {
-            console.log("✅ Симуляция завершена внутри шага, прерываем обработку");
-            return; // Выходим из функции немедленно
+            console.log("✅ Simulation innerhalb des Schritts beendet, breche Verarbeitung ab");
+            return; // Sofortiger Abbruch der Funktion
         }
     }
 
-    // Если дошли до конца без завершения - обновляем отображение
+    // Wenn kein Abbruch – aktualisiere Darstellung
     draw();
 
-    console.log("=== КОНЕЦ ШАГА СИМУЛЯЦИИ ===\n");
+    console.log("=== ENDE DES SIMULATIONSSCHRITTS ===\n");
 }
+
 
 // 3. Вспомогательные функции для лучшей структуры кода
 function updateMachineStatuses() {
@@ -611,7 +618,7 @@ function processActiveTasks() {
         const machineData = window.simulation.maschinen.find(m => m.Nr == task.maschine);
 
         if (!machineData) {
-            console.error(`❌ Машина ${task.maschine} не найдена!`);
+            console.error(`❌ Maschine ${task.maschine} ist nicht gefunden!`);
             return false;
         }
 
@@ -621,7 +628,7 @@ function processActiveTasks() {
             if (!task.paused) {
                 task.paused = true;
                 task.pauseStartTime = window.simulation.currentTimeMinutes;
-                console.log(`⏸️ Задача ${task.auftrag_nr} на машине ${task.maschine} поставлена на паузу`);
+                console.log(`⏸️ Auftrag ${task.auftrag_nr} auf Maschine ${task.maschine} wurde pausiert`);
             }
             return true;
         } else {
@@ -629,7 +636,7 @@ function processActiveTasks() {
                 task.paused = false;
                 const pauseDuration = window.simulation.currentTimeMinutes - (task.pauseStartTime || 0);
                 task.pausedTotalTime = (task.pausedTotalTime || 0) + pauseDuration;
-                console.log(`▶️ Задача ${task.auftrag_nr} снята с паузы (пауза: ${pauseDuration} мин)`);
+                console.log(`▶️ Auftrag ${task.auftrag_nr} wurde fortgesetzt (Pause: ${pauseDuration} Min)`);
             }
         }
 
@@ -642,7 +649,8 @@ function processActiveTasks() {
         task.processedUnits = Math.floor((1 - task.remaining / task.totalDuration) * task.anzahl);
 
         if (task.remaining <= 0) {
-            console.log(`✅ Задача завершена: ${task.auftrag_nr} на машине ${task.maschine}`);
+            console.log(`✅ Aufgabe abgeschlossen: Auftrag ${task.auftrag_nr} auf Maschine ${task.maschine}`);
+            console.log(`✅ Aufgabe abgeschlossen: Auftrag ${task.auftrag_nr} auf Maschine ${task.maschine}`);
 
             // Освобождаем машину
             const maschine = window.simulation.maschinenStatus[task.maschine];
@@ -694,8 +702,9 @@ function processActiveTasks() {
                     );
 
                     window.simulation.statistics.completedTasks++;
-                    console.log(`🎉 Заказ ${task.auftrag_nr} полностью завершен!`);
-                    addActivity(`Заказ ${task.auftrag_nr} завершен полностью`);
+                    console.log(`🎉 Auftrag ${task.auftrag_nr} vollständig abgeschlossen!`);
+                    addActivity(`Auftrag ${task.auftrag_nr} vollständig abgeschlossen`);
+
                 } else {
                     // Переходим к следующей операции
                     auftragStatus.waitingStartTime = window.simulation.currentTimeMinutes;
@@ -795,9 +804,9 @@ function startNewTasks() {
         if (!orderStats.machinesUsed.includes(machineId)) {
             orderStats.machinesUsed.push(machineId);
         }
+        console.log(`🚀 AUFGABE GESTARTET: Auftrag ${nextOrder.auftrag_nr} auf Maschine ${machineId}, Dauer: ${totalDuration} Min`);
+        addActivity(`Bearbeitung von Auftrag ${nextOrder.auftrag_nr} auf Maschine ${machineId} gestartet`);
 
-        console.log(`🚀 ЗАДАЧА ЗАПУЩЕНА: Заказ ${nextOrder.auftrag_nr} на машине ${machineId}, длительность: ${totalDuration} мин`);
-        addActivity(`Запущена обработка заказа ${nextOrder.auftrag_nr} на машине ${machineId}`);
     });
 }
 

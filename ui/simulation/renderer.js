@@ -380,31 +380,32 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
     let fillColor, statusText;
 
     if (!status.verfuegbar) {
-        // Машина недоступна по датам
-        fillColor = COLORS.machine.unavailable; // Добавьте этот цвет в COLORS, если его нет
-        statusText = 'Недоступна';
-    } else if (status.hasUnfinishedTask && status.waitingForWorkingTime) {
-        // Машина имеет незаконченную задачу, но сейчас нерабочее время
-        fillColor = COLORS.machine.waitingForWorkTime; // Новый цвет для этого статуса
-        statusText = 'Ждет рабочего времени';
-    } else if (!status.frei && status.hasUnfinishedTask) {
-        // Машина активно выполняет задачу
-        fillColor = COLORS.machine.busy;
-        statusText = 'Beschäftigt';
-    } else if (status.frei && status.canStartNewTask) {
-        // Машина свободна и может принять новую задачу
-        fillColor = COLORS.machine.free;
-        statusText = 'Frei';
-    } else if (status.frei && !isWorkingTime && isAvailable) {
-        // Машина свободна, но сейчас нерабочее время
-        fillColor = COLORS.machine.nonWorking;
-        statusText = 'Нерабочее время';
-    } else {
-        // Fallback для неопределенных состояний
-        fillColor = COLORS.machine.unknown; // Добавьте этот цвет, если его нет
-        statusText = 'Неопределенный статус';
-        console.warn(`Неопределенный статус машины ${machineNr}:`, status);
-    }
+    // Die Maschine ist laut Kalender nicht verfügbar
+    fillColor = COLORS.machine.unavailable; // Fügen Sie diese Farbe ggf. in COLORS ein
+    statusText = 'Nicht verfügbar';
+} else if (status.hasUnfinishedTask && status.waitingForWorkingTime) {
+    // Die Maschine hat eine unfertige Aufgabe, aber aktuell ist keine Arbeitszeit
+    fillColor = COLORS.machine.waitingForWorkTime; // Neue Farbe für diesen Status
+    statusText = 'Wartet auf Arbeitszeit';
+} else if (!status.frei && status.hasUnfinishedTask) {
+    // Die Maschine führt gerade eine Aufgabe aus
+    fillColor = COLORS.machine.busy;
+    statusText = 'Beschäftigt';
+} else if (status.frei && status.canStartNewTask) {
+    // Die Maschine ist frei und kann neue Aufgaben annehmen
+    fillColor = COLORS.machine.free;
+    statusText = 'Frei';
+} else if (status.frei && !isWorkingTime && isAvailable) {
+    // Die Maschine ist frei, aber aktuell ist keine Arbeitszeit
+    fillColor = COLORS.machine.nonWorking;
+    statusText = 'Keine Arbeitszeit';
+} else {
+    // Fallback für undefinierte Zustände
+    fillColor = COLORS.machine.unknown; // Fügen Sie ggf. diese Farbe hinzu
+    statusText = 'Unbekannter Status';
+    console.warn(`Unbekannter Maschinenstatus ${machineNr}:`, status);
+}
+
 
     // Machine body
     ctx.fillStyle = fillColor;
@@ -685,7 +686,7 @@ function drawMovableInfoPanel(simulation) {
         canvasPos.y >= panelY && canvasPos.y <= panelY + LAYOUT.dragHandleHeight;
 
     // Draw drag handle
-    drawDragHandle(panelX, panelY, panelWidth, '📊 Статистика', isHovered);
+    drawDragHandle(panelX, panelY, panelWidth, '📊 Statistiken', isHovered);
 
     // Panel background
     ctx.fillStyle = COLORS.ui.panel;

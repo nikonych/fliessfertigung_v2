@@ -378,11 +378,12 @@
 
 <!-- Дата и время -->
 <div id="datetime-display">
-    <div class="date" id="current-date">Загрузка...</div>
+    <div class="date" id="current-date">Wird geladen...</div>
     <div class="time" id="current-time">--:--</div>
-    <div class="day-info" id="day-info">День 0</div>
-    <div class="status" id="simulation-status">Остановлена</div>
+    <div class="day-info" id="day-info">Tag 0</div>
+    <div class="status" id="simulation-status">Gestoppt</div>
 </div>
+
 
 <div id="controls">
     <div class="control-group">
@@ -415,7 +416,7 @@
 <div id="statisticsModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2>Статистика симуляции</h2>
+            <h2>Simulationsstatistik</h2>
             <span class="close">&times;</span>
         </div>
         <div class="modal-body" id="statisticsContent">
@@ -462,18 +463,18 @@
 
         // ТАКЖЕ ИСПРАВИТЬ расчет дня симуляции:
         const simulationDay = Math.floor(totalMinutes / (24 * 60));
-        document.getElementById('day-info').textContent = `Симуляционный день ${simulationDay}`;
+        document.getElementById('day-info').textContent = `Simulationstag ${simulationDay}`;
 
         // Обновляем статус симуляции
         const statusElement = document.getElementById('simulation-status');
         if (simulation.isRunning) {
-            statusElement.textContent = 'Запущена';
+            statusElement.textContent = 'Aktiviert';
             statusElement.className = 'status running';
         } else if (simulation.isPaused) {
-            statusElement.textContent = 'Пауза';
+            statusElement.textContent = 'Pause';
             statusElement.className = 'status paused';
         } else {
-            statusElement.textContent = 'Остановлена';
+            statusElement.textContent = 'Gestoppt';
             statusElement.className = 'status stopped';
         }
     }
@@ -492,7 +493,7 @@
     // Функция для отображения статистики
     function showStatistics() {
         if (!window.simulation || !window.simulation.statistics) {
-            console.error('Статистика симуляции недоступна');
+            console.error('Simulationsstatistiken sind nicht verfügbar');
             return;
         }
 
@@ -527,7 +528,7 @@
             data: {
                 labels: machines,
                 datasets: [{
-                    label: 'Загрузка (%)',
+                    label: 'Auslastung (%)',
                     data: utilizations,
                     backgroundColor: 'rgba(99, 102, 241, 0.8)',
                     borderColor: 'rgba(99, 102, 241, 1)',
@@ -562,14 +563,14 @@
             data: {
                 labels: orderIds,
                 datasets: [{
-                    label: 'Время обработки (мин)',
+                    label: 'Bearbeitungszeit (min)',
                     data: processingTimes,
                     backgroundColor: 'rgba(34, 197, 94, 0.8)',
                     borderColor: 'rgba(34, 197, 94, 1)',
                     borderWidth: 2,
                     borderRadius: 6
                 }, {
-                    label: 'Время ожидания (мин)',
+                    label: 'Wartezeit (min)',
                     data: waitingTimes,
                     backgroundColor: 'rgba(239, 68, 68, 0.8)',
                     borderColor: 'rgba(239, 68, 68, 1)',
@@ -621,7 +622,7 @@
                 data: {
                     labels: demoLabels,
                     datasets: [{
-                        label: 'Средняя загрузка системы (%)',
+                        label: 'Durchschnittliche Systemauslastung (%)',
                         data: demoData,
                         borderColor: 'rgba(99, 102, 241, 1)',
                         backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -664,7 +665,7 @@
             if (stats.utilizationHistory && stats.utilizationHistory.length > 0) {
                 const color = colors[colorIndex % colors.length];
                 datasets.push({
-                    label: `Машина ${machineId}`,
+                    label: `Maschine ${machineId}`,
                     data: stats.utilizationHistory.map(h => h.utilization),
                     borderColor: color,
                     backgroundColor: color + '20',
@@ -728,7 +729,7 @@
         new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Завершено', 'В процессе', 'Ожидает'],
+                labels: ['Abgeschlossen', 'In Bearbeitung', 'Wartet'],
                 datasets: [{
                     data: [completed, active, waiting],
                     backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
@@ -918,104 +919,110 @@
         const totalPartsProcessed = Object.values(machineStats).reduce((sum, m) => sum + (m.totalPartsProcessed || 0), 0);
         return `
 <div class="stat-section">
-    <h3>Экспорт данных</h3>
+    <h3>Daten export</h3>
     <div class="control-group">
-        <button id="exportCSV" style="background: rgba(34, 197, 94, 0.8); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-right: 10px;">Экспорт в CSV</button>
-        <button id="exportSQLite" style="background: rgba(59, 130, 246, 0.8); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Экспорт в SQLite</button>
+        <button id="exportCSV" style="background: rgba(34, 197, 94, 0.8); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-right: 10px;">Export in CSV</button>
+        <button id="exportSQLite" style="background: rgba(59, 130, 246, 0.8); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Export in SQLite</button>
     </div>
 </div>
         <div class="stat-section">
-            <h3>Общая статистика</h3>
-            <div class="stat-grid">
-                <div class="stat-item">
-                    <div class="label">Всего машин</div>
-                    <div class="value">${totalMachines}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">Активных машин</div>
-                    <div class="value">${activeMachines}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">Всего заказов</div>
-                    <div class="value">${totalOrders}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">Активных заказов</div>
-                    <div class="value">${activeOrders}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">Завершенных заказов</div>
-                    <div class="value">${completedOrders}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">Обработано деталей</div>
-                    <div class="value">${totalPartsProcessed}</div>
-                </div>
-                <div class="stat-item">
-    <div class="label">Среднее время выполнения</div>
-    <div class="value">${formatTime(completedOrders > 0 ? Object.values(orderStats).filter(o => o.endTime || (o.operations && o.operations.some(op => op.endTime))).reduce((sum, o) => sum + (o.totalLeadTime || 0), 0) / completedOrders : 0)}</div>
-</div>
-<div class="stat-item">
-    <div class="label">Общее время ожидания</div>
-    <div class="value">${formatTime(Object.values(orderStats).reduce((sum, o) => sum + (o.totalWaitingTime || 0), 0))}</div>
-</div>
-                <div class="stat-item">
-                    <div class="label">Общее время работы</div>
-                    <div class="value">${formatTime(totalProcessingTime)}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="label">Время симуляции</div>
-                    <div class="value">${formatTime(stats.totalSimulationTime || 0)}</div>
-                </div>
-<div class="stat-item">
-    <div class="label">Всего буферов</div>
-    <div class="value">${Object.keys(bufferStats).length}</div>
-</div>
-<div class="stat-item">
-    <div class="label">Заполненные буферы</div>
-    <div class="value">${Object.values(bufferStats).filter(b => (b.currentLevel || 0) > 0).length}</div>
-</div>
-            </div>
+    <h3>Gesamtstatistik</h3>
+    <div class="stat-grid">
+        <div class="stat-item">
+            <div class="label">Gesamtanzahl Maschinen</div>
+            <div class="value">${totalMachines}</div>
         </div>
+        <div class="stat-item">
+            <div class="label">Aktive Maschinen</div>
+            <div class="value">${activeMachines}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Gesamtanzahl Aufträge</div>
+            <div class="value">${totalOrders}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Aktive Aufträge</div>
+            <div class="value">${activeOrders}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Abgeschlossene Aufträge</div>
+            <div class="value">${completedOrders}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Verarbeitete Teile</div>
+            <div class="value">${totalPartsProcessed}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Durchschnittliche Durchlaufzeit</div>
+            <div class="value">${formatTime(completedOrders > 0 ? Object.values(orderStats).filter(o => o.endTime || (o.operations && o.operations.some(op => op.endTime))).reduce((sum, o) => sum + (o.totalLeadTime || 0), 0) / completedOrders : 0)}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Gesamte Wartezeit</div>
+            <div class="value">${formatTime(Object.values(orderStats).reduce((sum, o) => sum + (o.totalWaitingTime || 0), 0))}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Gesamte Bearbeitungszeit</div>
+            <div class="value">${formatTime(totalProcessingTime)}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Simulationszeit</div>
+            <div class="value">${formatTime(stats.totalSimulationTime || 0)}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Gesamtanzahl Puffer</div>
+            <div class="value">${Object.keys(bufferStats).length}</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Gefüllte Puffer</div>
+            <div class="value">${Object.values(bufferStats).filter(b => (b.currentLevel || 0) > 0).length}</div>
+        </div>
+    </div>
+</div>
+
 <div class="stat-section">
-    <h3>Графики производительности</h3>
+    <h3>Leistungsdiagramme</h3>
     <div class="chart-grid">
         <div class="chart-container">
-            <div class="chart-title">Загрузка машин</div>
+            <div class="chart-title">Maschinenauslastung</div>
             <canvas style="margin-top: 40px; margin-left: 30px;" id="machineUtilizationChart"></canvas>
         </div>
         <div class="chart-container">
-            <div class="chart-title">Статус заказов</div>
+            <div class="chart-title">Auftragsstatus</div>
             <canvas style="margin-top: 40px; margin-left: 30px;" id="orderStatusChart"></canvas>
         </div>
         <div class="chart-container">
-            <div class="chart-title">Время обработки по заказам</div>
+            <div class="chart-title">Bearbeitungszeit pro Auftrag</div>
             <canvas style="margin-top: 40px; margin-left: 30px;" id="processingTimeChart"></canvas>
         </div>
-<!--        <div class="chart-container">-->
-<!--            <div class="chart-title">Утилизация машин во времени</div>-->
-<!--            <canvas id="utilizationTimeChart"></canvas>-->
-<!--        </div>-->
+        <!--
+        <div class="chart-container">
+            <div class="chart-title">Maschinenauslastung über Zeit</div>
+            <canvas id="utilizationTimeChart"></canvas>
+        </div>
+        -->
     </div>
 </div>
-        <div class="stat-section">
-            <h3>Статистика машин</h3>
-            ${generateMachineStatisticsHTML(machineStats)}
-        </div>
 
-        <div class="stat-section">
-            <h3>Статистика заказов</h3>
-            ${generateOrderStatisticsHTML(orderStats)}
-        </div>
+<div class="stat-section">
+    <h3>Maschinenstatistik</h3>
+    ${generateMachineStatisticsHTML(machineStats)}
+</div>
 
-        <div class="stat-section">
-    <h3>Статистика буферов</h3>
+<div class="stat-section">
+    <h3>Auftragsstatistik</h3>
+    ${generateOrderStatisticsHTML(orderStats)}
+</div>
+
+<div class="stat-section">
+    <h3>Pufferstatistik</h3>
     ${generateBufferStatisticsHTML(bufferStats)}
 </div>
+
 <div class="stat-section">
-    <h3>Время заказов в буферах</h3>
+    <h3>Verweilzeit der Aufträge in Puffern</h3>
     ${generateOrderBufferTimesHTML(orderBufferTimes)}
 </div>
+
     `;
     }
 
@@ -1032,8 +1039,9 @@
         const orderBufferTimes = calculateOrderBufferTimesFromEvents(stats.bufferStatistics || {});
 
         // === ОБЩАЯ СТАТИСТИКА ===
-        csvData.push(['=== ОБЩАЯ СТАТИСТИКА ===']);
-        csvData.push(['Параметр', 'Значение']);
+        csvData.push(['=== GESAMTSTATISTIK ===']);
+        csvData.push(['Parameter', 'Wert']);
+
 
         const totalMachines = Object.keys(machineStats).length;
         const activeMachines = Object.values(machineStats).filter(m => parseFloat(m.utilization || 0) > 0).length;
@@ -1052,29 +1060,29 @@
                 .reduce((sum, o) => sum + (o.totalLeadTime || 0), 0) / completedOrders : 0;
 
         const totalWaitingTime = Object.values(orderStats).reduce((sum, o) => sum + (o.totalWaitingTime || 0), 0);
-
-        csvData.push(['Всего машин', totalMachines]);
-        csvData.push(['Активных машин', activeMachines]);
-        csvData.push(['Всего заказов', totalOrders]);
-        csvData.push(['Активных заказов', activeOrders]);
-        csvData.push(['Завершенных заказов', completedOrders]);
-        csvData.push(['Обработано деталей', totalPartsProcessed]);
-        csvData.push(['Среднее время выполнения (мин)', Math.round(avgLeadTime)]);
-        csvData.push(['Общее время ожидания (мин)', Math.round(totalWaitingTime)]);
-        csvData.push(['Общее время работы (мин)', Math.round(totalProcessingTime)]);
-        csvData.push(['Время симуляции (мин)', Math.round(stats.totalSimulationTime || 0)]);
-        csvData.push(['Всего буферов', totalBuffers]);
-        csvData.push(['Заполненные буферы', filledBuffers]);
+        csvData.push(['Gesamtanzahl Maschinen', totalMachines]);
+        csvData.push(['Aktive Maschinen', activeMachines]);
+        csvData.push(['Gesamtanzahl Aufträge', totalOrders]);
+        csvData.push(['Aktive Aufträge', activeOrders]);
+        csvData.push(['Abgeschlossene Aufträge', completedOrders]);
+        csvData.push(['Verarbeitete Teile', totalPartsProcessed]);
+        csvData.push(['Durchschnittliche Durchlaufzeit (Minuten)', Math.round(avgLeadTime)]);
+        csvData.push(['Gesamte Wartezeit (Minuten)', Math.round(totalWaitingTime)]);
+        csvData.push(['Gesamte Bearbeitungszeit (Minuten)', Math.round(totalProcessingTime)]);
+        csvData.push(['Simulationszeit (Minuten)', Math.round(stats.totalSimulationTime || 0)]);
+        csvData.push(['Gesamtanzahl Puffer', totalBuffers]);
+        csvData.push(['Gefüllte Puffer', filledBuffers]);
 
         csvData.push([]);
 
         // === СТАТИСТИКА МАШИН ===
-        csvData.push(['=== СТАТИСТИКА МАШИН ===']);
+        csvData.push(['=== MASCHINENSTATISTIK ===']);
         csvData.push([
-            'Машина', 'Использование (%)', 'Время работы (мин)', 'Время простоя (мин)',
-            'Время недоступности (мин)', 'Доступное время (мин)', 'Операций завершено',
-            'Деталей обработано', 'Общее время (мин)'
+            'Maschine', 'Auslastung (%)', 'Betriebszeit (Minuten)', 'Leerlaufzeit (Minuten)',
+            'Nichtverfügbarkeitszeit (Minuten)', 'Verfügbare Zeit (Minuten)', 'Abgeschlossene Operationen',
+            'Verarbeitete Teile', 'Gesamtzeit (Minuten)'
         ]);
+
 
         Object.entries(machineStats).forEach(([machineId, stats]) => {
             csvData.push([
@@ -1093,77 +1101,79 @@
         csvData.push([]);
 
         // === СТАТИСТИКА ЗАКАЗОВ ===
-        csvData.push(['=== СТАТИСТИКА ЗАКАЗОВ ===']);
+        csvData.push(['=== AUFTRAGSSTATISTIK ===']);
         csvData.push([
-            'Заказ', 'Статус', 'Количество', 'Время выполнения (мин)',
-            'Время обработки (мин)', 'Время ожидания (мин)', 'Время паузы (мин)',
-            'Операций', 'Машины', 'Время начала', 'Время окончания'
+            'Auftrag', 'Status', 'Anzahl', 'Durchlaufzeit (Minuten)',
+            'Bearbeitungszeit (Minuten)', 'Wartezeit (Minuten)', 'Pausenzeit (Minuten)',
+            'Operationen', 'Maschinen', 'Startzeit', 'Endzeit'
         ]);
 
+
         Object.entries(orderStats).forEach(([orderId, order]) => {
-            const totalPausedTime = order.operations ?
-                order.operations.reduce((sum, op) => sum + (op.pausedTime || 0), 0) : 0;
-            const machines = (order.machinesUsed || []).join('; ') || 'Нет';
-            const startTime = order.startTime ? new Date(order.startTime).toLocaleString('de-DE') : 'Не начат';
-            const endTime = order.endTime ? new Date(order.endTime).toLocaleString('de-DE') : 'Не завершен';
+    const totalPausedTime = order.operations ?
+        order.operations.reduce((sum, op) => sum + (op.pausedTime || 0), 0) : 0;
+    const machines = (order.machinesUsed || []).join('; ') || 'Keine';
+    const startTime = order.startTime ? new Date(order.startTime).toLocaleString('de-DE') : 'Nicht gestartet';
+    const endTime = order.endTime ? new Date(order.endTime).toLocaleString('de-DE') : 'Nicht abgeschlossen';
+
+    csvData.push([
+        orderId,
+        getOrderStatusFromOperations(order),
+        order.quantity || 0,
+        order.totalLeadTime || 0,
+        order.totalProcessingTime || 0,
+        order.totalWaitingTime || 0,
+        Math.round(totalPausedTime),
+        order.operations ? order.operations.length : 0,
+        machines,
+        startTime,
+        endTime
+    ]);
+});
+
+csvData.push([]);
+
+// === ДЕТАЛЬНАЯ СТАТИСТИКА ОПЕРАЦИЙ ===
+csvData.push(['=== DETAILLIERTE OPERATIONSSTATISTIK ===']);
+csvData.push([
+    'Auftrag', 'Operationsnummer', 'Maschine', 'Status', 'Startzeit',
+    'Endzeit', 'Bearbeitungszeit (Minuten)', 'Pausenzeit (Minuten)', 'Anzahl'
+]);
+
+Object.entries(orderStats).forEach(([orderId, order]) => {
+    if (order.operations && order.operations.length > 0) {
+        order.operations.forEach((operation, index) => {
+            const startTime = operation.startTime ? new Date(operation.startTime).toLocaleString('de-DE') : 'Nicht gestartet';
+            const endTime = operation.endTime ? new Date(operation.endTime).toLocaleString('de-DE') : 'Nicht abgeschlossen';
+            const status = operation.endTime ? 'Abgeschlossen' :
+                (operation.startTime ? 'In Bearbeitung' : 'Wartet');
 
             csvData.push([
                 orderId,
-                getOrderStatusFromOperations(order),
-                order.quantity || 0,
-                order.totalLeadTime || 0,
-                order.totalProcessingTime || 0,
-                order.totalWaitingTime || 0,
-                Math.round(totalPausedTime),
-                order.operations ? order.operations.length : 0,
-                machines,
+                index + 1,
+                operation.machineId || 'Nicht zugewiesen',
+                status,
                 startTime,
-                endTime
+                endTime,
+                operation.processingTime || 0,
+                operation.pausedTime || 0,
+                operation.quantity || 0
             ]);
         });
+    }
+});
 
-        csvData.push([]);
+csvData.push([]);
 
-        // === ДЕТАЛЬНАЯ СТАТИСТИКА ОПЕРАЦИЙ ===
-        csvData.push(['=== ДЕТАЛЬНАЯ СТАТИСТИКА ОПЕРАЦИЙ ===']);
-        csvData.push([
-            'Заказ', 'Номер операции', 'Машина', 'Статус', 'Время начала',
-            'Время окончания', 'Время обработки (мин)', 'Время паузы (мин)', 'Количество'
-        ]);
+// === СТАТИСТИКА БУФЕРОВ ===
+csvData.push(['=== PUFFERSTATISTIK ===']);
+csvData.push([
+    'Puffer', 'Aktueller Füllstand', 'Maximaler Füllstand', 'Durchschnittlicher Füllstand',
+    'Füllzeit (%)', 'Eintritte in Warteschlange', 'Austritte aus Warteschlange',
+    'Leerlaufzeit (Minuten)', 'Gesamte Wartezeit (Minuten)', 'Durchschnittliche Wartezeit (Minuten)',
+    'Gesamtanzahl Ereignisse', 'Analysezeit (Minuten)'
+]);
 
-        Object.entries(orderStats).forEach(([orderId, order]) => {
-            if (order.operations && order.operations.length > 0) {
-                order.operations.forEach((operation, index) => {
-                    const startTime = operation.startTime ? new Date(operation.startTime).toLocaleString('de-DE') : 'Не начато';
-                    const endTime = operation.endTime ? new Date(operation.endTime).toLocaleString('de-DE') : 'Не завершено';
-                    const status = operation.endTime ? 'Завершено' :
-                        (operation.startTime ? 'В процессе' : 'Ожидает');
-
-                    csvData.push([
-                        orderId,
-                        index + 1,
-                        operation.machineId || 'Не назначена',
-                        status,
-                        startTime,
-                        endTime,
-                        operation.processingTime || 0,
-                        operation.pausedTime || 0,
-                        operation.quantity || 0
-                    ]);
-                });
-            }
-        });
-
-        csvData.push([]);
-
-        // === СТАТИСТИКА БУФЕРОВ ===
-        csvData.push(['=== СТАТИСТИКА БУФЕРОВ ===']);
-        csvData.push([
-            'Буфер', 'Текущий уровень', 'Максимальный уровень', 'Средний уровень',
-            'Время заполнения (%)', 'Входов в очередь', 'Выходов из очереди',
-            'Время простоя (мин)', 'Общее время ожидания (мин)', 'Среднее время ожидания (мин)',
-            'Всего событий', 'Время анализа (мин)'
-        ]);
 
         Object.entries(bufferStats).forEach(([bufferId, stats]) => {
             csvData.push([
@@ -1185,51 +1195,57 @@
         csvData.push([]);
 
         // === ВРЕМЯ ЗАКАЗОВ В БУФЕРАХ ===
-        csvData.push(['=== ВРЕМЯ ЗАКАЗОВ В БУФЕРАХ ===']);
-        csvData.push(['Заказ', 'Количество', 'Общее время в буферах (мин)', 'Количество машин', 'Детали по машинам']);
+       csvData.push(['=== VERWEILZEIT DER AUFTRÄGE IN PUFFERN ===']);
+csvData.push([
+    'Auftrag', 'Anzahl', 'Gesamte Pufferzeit (Minuten)', 'Anzahl Maschinen', 'Details pro Maschine'
+]);
 
-        Object.entries(orderBufferTimes).forEach(([orderId, orderData]) => {
-            const machineDetails = Object.entries(orderData.waitingDetails || {})
-                .map(([machineId, details]) =>
-                    `${machineId}:${Math.round(details.bufferTime)}мин(поз.${details.queuePosition},оп.${details.operationNumber})`
-                )
-                .join('; ');
+    Object.entries(orderBufferTimes).forEach(([orderId, orderData]) => {
+        const machineDetails = Object.entries(orderData.waitingDetails || {})
+            .map(([machineId, details]) =>
+                `${machineId}:${Math.round(details.bufferTime)}min(Pos.${details.queuePosition},Op.${details.operationNumber})`
+            )
+            .join('; ');
 
-            csvData.push([
-                orderId,
-                orderData.totalQuantity,
-                Math.round(orderData.totalBufferTime),
-                Object.keys(orderData.bufferTimes || {}).length,
-                machineDetails
-            ]);
-        });
+        csvData.push([
+            orderId,
+            orderData.totalQuantity,
+            Math.round(orderData.totalBufferTime),
+            Object.keys(orderData.bufferTimes || {}).length,
+            machineDetails
+        ]);
+    });
 
-        csvData.push([]);
+    csvData.push([]);
 
-        // === ДЕТАЛЬНАЯ ПОСЛЕДОВАТЕЛЬНОСТЬ ОПЕРАЦИЙ ===
-        csvData.push(['=== ПОСЛЕДОВАТЕЛЬНОСТЬ ОПЕРАЦИЙ ПО ЗАКАЗАМ ===']);
-        csvData.push(['Заказ', 'Шаг', 'Машина', 'Время входа в очередь', 'Время начала обработки', 'Время в буфере (мин)', 'Номер операции']);
+    // === ДЕТАЛЬНАЯ ПОСЛЕДОВАТЕЛЬНОСТЬ ОПЕРАЦИЙ ===
+    csvData.push(['=== OPERATIONSSABFOLGE NACH AUFTRÄGEN ===']);
+    csvData.push([
+        'Auftrag', 'Schritt', 'Maschine', 'Zeitpunkt Eintritt in Warteschlange',
+        'Bearbeitungsstart', 'Pufferzeit (Minuten)', 'Operationsnummer'
+    ]);
 
-        Object.entries(orderBufferTimes).forEach(([orderId, orderData]) => {
-            if (orderData.machineSequence && orderData.machineSequence.length > 0) {
-                orderData.machineSequence
-                    .sort((a, b) => a.entryTime - b.entryTime)
-                    .forEach((seq, index) => {
-                        const entryTime = new Date(seq.entryTime).toLocaleString('de-DE');
-                        const startTime = seq.startTime ? new Date(seq.startTime).toLocaleString('de-DE') : 'Не начато';
+    Object.entries(orderBufferTimes).forEach(([orderId, orderData]) => {
+        if (orderData.machineSequence && orderData.machineSequence.length > 0) {
+            orderData.machineSequence
+                .sort((a, b) => a.entryTime - b.entryTime)
+                .forEach((seq, index) => {
+                    const entryTime = new Date(seq.entryTime).toLocaleString('de-DE');
+                    const startTime = seq.startTime ? new Date(seq.startTime).toLocaleString('de-DE') : 'Nicht gestartet';
 
-                        csvData.push([
-                            orderId,
-                            index + 1,
-                            seq.machine,
-                            entryTime,
-                            startTime,
-                            Math.round(seq.duration),
-                            seq.operationNumber || 'Не указан'
-                        ]);
-                    });
-            }
-        });
+                    csvData.push([
+                        orderId,
+                        index + 1,
+                        seq.machine,
+                        entryTime,
+                        startTime,
+                        Math.round(seq.duration),
+                        seq.operationNumber || 'Nicht angegeben'
+                    ]);
+                });
+        }
+    });
+
 
         // Создаем CSV строку
         const csvContent = csvData.map(row =>
@@ -1397,20 +1413,21 @@
 
             const totalWaitingTime = Object.values(orderStats).reduce((sum, o) => sum + (o.totalWaitingTime || 0), 0);
 
-            const generalStmt = db.prepare("INSERT INTO general_statistics VALUES (?, ?, ?)");
-            generalStmt.run(['total_machines', totalMachines.toString(), 'Общее количество машин в системе']);
-            generalStmt.run(['active_machines', activeMachines.toString(), 'Количество машин с загрузкой > 0%']);
-            generalStmt.run(['total_orders', totalOrders.toString(), 'Общее количество заказов']);
-            generalStmt.run(['active_orders', activeOrders.toString(), 'Заказы в процессе выполнения']);
-            generalStmt.run(['completed_orders', completedOrders.toString(), 'Завершенные заказы']);
-            generalStmt.run(['total_parts_processed', totalPartsProcessed.toString(), 'Общее количество обработанных деталей']);
-            generalStmt.run(['average_lead_time', Math.round(avgLeadTime).toString(), 'Среднее время выполнения заказа (мин)']);
-            generalStmt.run(['total_waiting_time', Math.round(totalWaitingTime).toString(), 'Общее время ожидания (мин)']);
-            generalStmt.run(['total_processing_time', Math.round(totalProcessingTime).toString(), 'Общее время обработки (мин)']);
-            generalStmt.run(['simulation_time', Math.round(stats.totalSimulationTime || 0).toString(), 'Время симуляции (мин)']);
-            generalStmt.run(['total_buffers', totalBuffers.toString(), 'Количество буферов']);
-            generalStmt.run(['filled_buffers', filledBuffers.toString(), 'Заполненные буферы']);
-            generalStmt.free();
+         const generalStmt = db.prepare("INSERT INTO general_statistics VALUES (?, ?, ?)");
+        generalStmt.run(['total_machines', totalMachines.toString(), 'Gesamtanzahl Maschinen im System']);
+        generalStmt.run(['active_machines', activeMachines.toString(), 'Maschinen mit Auslastung > 0%']);
+        generalStmt.run(['total_orders', totalOrders.toString(), 'Gesamtanzahl Aufträge']);
+        generalStmt.run(['active_orders', activeOrders.toString(), 'Aufträge in Bearbeitung']);
+        generalStmt.run(['completed_orders', completedOrders.toString(), 'Abgeschlossene Aufträge']);
+        generalStmt.run(['total_parts_processed', totalPartsProcessed.toString(), 'Gesamtanzahl verarbeiteter Teile']);
+        generalStmt.run(['average_lead_time', Math.round(avgLeadTime).toString(), 'Durchschnittliche Durchlaufzeit eines Auftrags (Minuten)']);
+        generalStmt.run(['total_waiting_time', Math.round(totalWaitingTime).toString(), 'Gesamte Wartezeit (Minuten)']);
+        generalStmt.run(['total_processing_time', Math.round(totalProcessingTime).toString(), 'Gesamte Bearbeitungszeit (Minuten)']);
+        generalStmt.run(['simulation_time', Math.round(stats.totalSimulationTime || 0).toString(), 'Simulationsdauer (Minuten)']);
+        generalStmt.run(['total_buffers', totalBuffers.toString(), 'Anzahl der Puffer']);
+        generalStmt.run(['filled_buffers', filledBuffers.toString(), 'Gefüllte Puffer']);
+        generalStmt.free();
+
 
             // Статистика машин
             const machineStmt = db.prepare("INSERT INTO machine_statistics VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -1461,8 +1478,9 @@
                     order.operations.forEach((operation, index) => {
                         const startTime = operation.startTime ? new Date(operation.startTime).toISOString() : null;
                         const endTime = operation.endTime ? new Date(operation.endTime).toISOString() : null;
-                        const status = operation.endTime ? 'Завершено' :
-                            (operation.startTime ? 'В процессе' : 'Ожидает');
+                     const status = operation.endTime ? 'Abgeschlossen' :
+                    (operation.startTime ? 'In Bearbeitung' : 'Wartet');
+
 
                         operationStmt.run([
                             orderId,
@@ -1560,68 +1578,71 @@
             db.close();
 
         } catch (error) {
-            console.error('Ошибка экспорта в SQLite:', error);
-            alert('Ошибка при экспорте в SQLite: ' + error.message);
-        }
+    console.error('Fehler beim Export nach SQLite:', error);
+    alert('Fehler beim Export nach SQLite: ' + error.message);
+    }
     }
 
-    // Вспомогательная функция для определения статуса заказа
+    // Hilfsfunktion zur Bestimmung des Auftragsstatus
     function getOrderStatusFromOperations(order) {
-        if (order.endTime) return 'Завершен';
-        if (order.startTime) return 'В процессе';
+        if (order.endTime) return 'Abgeschlossen';
+        if (order.startTime) return 'In Bearbeitung';
         if (order.operations && order.operations.length > 0) {
             const lastOperation = order.operations[order.operations.length - 1];
-            if (lastOperation.endTime) return 'Завершен';
-            if (lastOperation.startTime) return 'В процессе';
+            if (lastOperation.endTime) return 'Abgeschlossen';
+            if (lastOperation.startTime) return 'In Bearbeitung';
         }
-        return 'Ожидает';
+        return 'Wartet';
     }
+
+
 
     // Вспомогательные функции
     function formatTime(minutes) {
-        if (!minutes || minutes === 0) return '0м';
+        if (!minutes || minutes === 0) return '0 Min';
         const hours = Math.floor(minutes / 60);
         const mins = Math.round(minutes % 60);
         if (hours > 0) {
-            return `${hours}ч ${mins}м`;
+            return `${hours} Std ${mins} Min`;
         }
-        return `${mins}м`;
+        return `${mins} Min`;
     }
 
     function formatTimeFromSeconds(seconds) {
-        if (!seconds || seconds === 0) return '0м';
+        if (!seconds || seconds === 0) return '0 Min';
         const minutes = Math.round(seconds / 60);
         return formatTime(minutes);
     }
 
     function getOrderStatus(order) {
-        if (order.endTime) return 'Завершен';
-        if (order.startTime) return 'В процессе';
-        return 'Ожидает';
+    if (order.endTime) return 'Abgeschlossen';
+    if (order.startTime) return 'In Bearbeitung';
+    return 'Wartet';
+}
+
+function generateMachineStatisticsHTML(machineStats) {
+    if (!machineStats || Object.keys(machineStats).length === 0) {
+        return '<p>Keine Maschinendaten verfügbar</p>';
     }
 
-    function generateMachineStatisticsHTML(machineStats) {
-        if (!machineStats || Object.keys(machineStats).length === 0) {
-            return '<p>Нет данных о машинах</p>';
-        }
-
-        let html = `
+    let html = `
     <table class="stat-table">
         <thead>
             <tr>
-                <th>Машина</th>
-                <th>Использование (%)</th>
-                <th>Время работы</th>
-                <th>Время простоя</th>
-                <th>Время недоступности</th>
-                <th>Доступное время</th>
-                <th>Операций завершено</th>
-                <th>Деталей обработано</th>
-                <th>Общее время</th>
+                <th>Maschine</th>
+                <th>Auslastung (%)</th>
+                <th>Betriebszeit</th>
+                <th>Leerlaufzeit</th>
+                <th>Nichtverfügbarkeitszeit</th>
+                <th>Verfügbare Zeit</th>
+                <th>Abgeschlossene Operationen</th>
+                <th>Verarbeitete Teile</th>
+                <th>Gesamtzeit</th>
             </tr>
         </thead>
         <tbody>
     `;
+
 
         for (const [machineId, stats] of Object.entries(machineStats)) {
             const utilization = parseFloat(stats.utilization || 0).toFixed(1);
@@ -1652,28 +1673,29 @@
         return html;
     }
 
-    function generateOrderStatisticsHTML(orderStats) {
-        if (!orderStats || Object.keys(orderStats).length === 0) {
-            return '<p>Нет данных о заказах</p>';
-        }
+   function generateOrderStatisticsHTML(orderStats) {
+    if (!orderStats || Object.keys(orderStats).length === 0) {
+        return '<p>Keine Auftragsdaten verfügbar</p>';
+    }
 
-        let html = `
+    let html = `
         <table class="stat-table">
             <thead>
                 <tr>
-                    <th>Заказ</th>
-                    <th>Статус</th>
-                    <th>Количество</th>
-                    <th>Время выполнения</th>
-                    <th>Время обработки</th>
-                    <th>Время ожидания</th>
-                    <th>Время паузы</th>
-                    <th>Операций</th>
-                    <th>Машины</th>
+                    <th>Auftrag</th>
+                    <th>Status</th>
+                    <th>Anzahl</th>
+                    <th>Durchlaufzeit</th>
+                    <th>Bearbeitungszeit</th>
+                    <th>Wartezeit</th>
+                    <th>Pausenzeit</th>
+                    <th>Operationen</th>
+                    <th>Maschinen</th>
                 </tr>
             </thead>
             <tbody>
         `;
+
 
         for (const [orderId, order] of Object.entries(orderStats)) {
             const status = getOrderStatusFromOperations(order);
@@ -1688,7 +1710,7 @@
             const pausedTime = formatTime(totalPausedTime);
 
             const operationsCount = order.operations ? order.operations.length : 0;
-            const machines = (order.machinesUsed || []).join(', ') || 'Нет';
+            const machines = (order.machinesUsed || []).join(', ') || 'Nein';
 
             html += `
             <tr>
@@ -1875,30 +1897,31 @@
         return bufferStats;
     }
 
-    function generateBufferStatisticsHTML(bufferStats) {
-        if (!bufferStats || Object.keys(bufferStats).length === 0) {
-            return '<p>Нет данных о буферах</p>';
-        }
+   function generateBufferStatisticsHTML(bufferStats) {
+    if (!bufferStats || Object.keys(bufferStats).length === 0) {
+        return '<p>Keine Pufferdaten verfügbar</p>';
+    }
 
-        let html = `
+    let html = `
     <table class="stat-table">
         <thead>
             <tr>
-                <th>Буфер</th>
-                <th>Текущий уровень</th>
-                <th>Максимальный уровень</th>
-                <th>Средний уровень</th>
-                <th>Время заполнения (%)</th>
-                <th>Входов в очередь</th>
-                <th>Выходов из очереди</th>
-                <th>Время простоя</th>
-                <th>Общее время ожидания</th>
-                <th>Среднее время ожидания</th>
-                <th>Всего событий</th>
+                <th>Puffer</th>
+                <th>Aktueller Füllstand</th>
+                <th>Maximaler Füllstand</th>
+                <th>Durchschnittlicher Füllstand</th>
+                <th>Füllzeit (%)</th>
+                <th>Eintritte in Warteschlange</th>
+                <th>Austritte aus Warteschlange</th>
+                <th>Leerlaufzeit</th>
+                <th>Gesamte Wartezeit</th>
+                <th>Durchschnittliche Wartezeit</th>
+                <th>Gesamtanzahl Ereignisse</th>
             </tr>
         </thead>
         <tbody>
     `;
+
 
         for (const [bufferId, stats] of Object.entries(bufferStats)) {
             html += `
@@ -1991,29 +2014,30 @@
     }
 
     function generateOrderBufferTimesHTML(orderBufferTimes) {
-        if (!orderBufferTimes || Object.keys(orderBufferTimes).length === 0) {
-            return '<p>Нет данных о времени заказов в буферах</p>';
-        }
+    if (!orderBufferTimes || Object.keys(orderBufferTimes).length === 0) {
+        return '<p>Keine Daten zur Verweilzeit der Aufträge in Puffern verfügbar</p>';
+    }
 
-        let html = `
+    let html = `
     <table class="stat-table">
         <thead>
             <tr>
-                <th>Заказ</th>
-                <th>Количество</th>
-                <th>Общее время в буферах</th>
-                <th>Детали по машинам</th>
-                <th>Последовательность операций</th>
+                <th>Auftrag</th>
+                <th>Anzahl</th>
+                <th>Gesamte Pufferzeit</th>
+                <th>Details pro Maschine</th>
+                <th>Operationsabfolge</th>
             </tr>
         </thead>
         <tbody>
     `;
 
+
         for (const [orderId, orderData] of Object.entries(orderBufferTimes)) {
             // Создаем детальную информацию по машинам
             const machineDetails = Object.entries(orderData.waitingDetails || {})
                 .map(([machineId, details]) =>
-                    `${machineId}: ${formatTime(details.bufferTime)} (поз.${details.queuePosition}, оп.${details.operationNumber})`
+                    `${machineId}: ${formatTime(details.bufferTime)} (Pos.${details.queuePosition}, Op.${details.operationNumber})`
                 )
                 .join('<br>');
 
@@ -2044,7 +2068,8 @@
             if (window.simulation && window.simulation.statistics) {
                 exportToCSV(window.simulation.statistics);
             } else {
-                alert('Нет данных для экспорта');
+                alert('Keine Daten zum Exportieren verfügbar');
+
             }
         }
 
@@ -2052,7 +2077,8 @@
             if (window.simulation && window.simulation.statistics) {
                 exportToSQLite(window.simulation.statistics);
             } else {
-                alert('Нет данных для экспорта');
+                alert('Keine Daten zum Exportieren verfügbar');
+
             }
         }
     });

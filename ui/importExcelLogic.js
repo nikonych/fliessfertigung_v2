@@ -96,7 +96,7 @@ function createTables(db) {
 
 module.exports = function importExcelLogic(filePath) {
     const dbPath = path.join(require('electron').app.getPath('userData'), 'manufacturing.db');
-    if (!fs.existsSync(filePath)) throw new Error('Файл не существует: ' + filePath);
+    if (!fs.existsSync(filePath)) throw new Error('File existiert nicht: ' + filePath);
 
     const db = new Database(dbPath);
     db.pragma('foreign_keys = OFF');

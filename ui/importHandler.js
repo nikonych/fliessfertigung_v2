@@ -1,33 +1,33 @@
 // 📅 renderer/importHandler.js
 
-// Основная функция импорта Excel
+// Hauptfunktion zum Importieren von Excel
 async function importExcelToDatabase(excelPath) {
     const result = await window.electronAPI.importExcel(excelPath);
-    console.log("Импорт завершен:", result);
+    console.log("Import abgeschlossen:", result);
     return result;
 }
 
-// Создание новой БД и таблиц после удаления
+// Leere Datenbank und Tabellen nach dem Löschen neu erstellen
 async function createEmptyDatabase() {
     const dbPath = await window.electronAPI.getDbPath();
     const result = await window.electronAPI.createEmptyDatabase(dbPath);
     console.log(result);
 }
 
-// Инициализация
+// Initialisierung
 window.onload = async () => {
     const importBtn = document.getElementById('importBtn');
 
     try {
-        console.log('Получение пути к БД...');
+        console.log('Abrufen des Datenbankpfads...');
         const DB_PATH = await window.electronAPI.getDbPath();
-        console.log('Путь к БД:', DB_PATH);
+        console.log('Datenbankpfad:', DB_PATH);
 
-        console.log('Проверка состояния БД...');
+        console.log('Überprüfung des Datenbankzustands...');
         const isEmpty = await window.electronAPI.isDbEmpty();
-        console.log('БД пуста:', isEmpty);
+        console.log('Datenbank ist leer:', isEmpty);
 
-        // Всегда отображаем кнопку для возможности перезаписи
+        // Schaltfläche immer anzeigen, um Überschreiben zu ermöglichen
         importBtn.style.display = 'inline-block';
 
         importBtn.addEventListener('click', async () => {
@@ -37,31 +37,30 @@ window.onload = async () => {
                 if (!result.canceled && result.filePaths.length > 0) {
                     const filePath = result.filePaths[0];
 
-                    console.log('Закрываем БД перед удалением...');
+                    console.log('Schließe Datenbank vor dem Löschen...');
                     await window.electronAPI.closeDb();
 
-
-                    console.log('Удаляем старую БД...');
+                    console.log('Lösche alte Datenbank...');
                     await window.electronAPI.deleteDb();
 
-                    console.log('Создаем новую БД...');
+                    console.log('Erstelle neue Datenbank...');
                     await createEmptyDatabase();
 
-                    console.log('Начинаем импорт файла:', filePath);
+                    console.log('Starte Import der Datei:', filePath);
                     await importExcelToDatabase(filePath);
 
-                    alert('✅ Данные успешно импортированы!');
+                    alert('✅ Daten wurden erfolgreich importiert!');
                     importBtn.style.display = 'none';
                     location.reload();
                 }
             } catch (err) {
-                console.error('Ошибка во время импорта:', err);
-                alert(`❌ Ошибка импорта: ${err.message}`);
+                console.error('Fehler beim Importieren:', err);
+                alert(`❌ Fehler beim Import: ${err.message}`);
             }
         });
 
     } catch (err) {
-        console.error('Ошибка инициализации:', err);
-        alert('Произошла ошибка при инициализации приложения');
+        console.error('Fehler bei der Initialisierung:', err);
+        alert('Beim Initialisieren der Anwendung ist ein Fehler aufgetreten');
     }
 };
