@@ -707,7 +707,7 @@ function drawMovableInfoPanel(simulation) {
             value: Object.values(simulation.maschinenStatus).filter(m => m.frei && m.verfuegbar).length
         },
         {label: 'Gesamte Maschinen', value: Object.keys(simulation.maschinenStatus).length},
-        {label: 'Simulationstag', value: getCurrentDay() - 730},
+        {label: 'Simulationstag', value: getCurrentDay()},
         {label: 'Intervall', value: `${simulation.simulationMinutesPerStep} min`}
     ];
 

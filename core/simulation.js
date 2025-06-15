@@ -3,7 +3,7 @@ import {draw, startAnimation, stopAnimation} from "../ui/simulation/renderer.js"
 
 function calculateDayFromDate(dateString) {
     const targetDate = new Date(dateString);
-    const baseDate = new Date('2020-01-01');
+    const baseDate = new Date('2022-01-01');
     const diffTime = targetDate.getTime() - baseDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -70,6 +70,11 @@ async function loadInitialData() {
             }
         }
 
+        console.log("📋 Проверка загруженных данных:");
+        console.log(`- Заказов: ${window.simulation.auftraege.length}`);
+        console.log(`- Машин: ${window.simulation.maschinen.length}`);
+        console.log(`- Планов работ: ${window.simulation.arbeitsplaene.length}`);
+
 
         // Инициализация машин
         initMaschinen(window.simulation.maschinen);
@@ -101,39 +106,91 @@ function addActivity(message) {
 
 // Функция для фильтрации и загрузки активных заказов
 function filterAndLoadActiveAuftraege() {
-    window.simulation.auftraegeQueue = window.simulation.auftraege.filter(auftrag => {
-        // Загружаем заказы, которые должны начаться до или в текущий день
-        return auftrag.Start <= getCurrentDay();
+    console.log("🔍 Фильтрация активных заказов...");
+
+    const currentDay = getCurrentDay();
+    console.log(`📅 Текущий день симуляции: ${currentDay}`);
+
+    const allOrders = window.simulation.auftraege || [];
+    console.log(`📦 Всего заказов для проверки: ${allOrders.length}`);
+
+    // ИСПРАВЛЕНИЕ: Увеличиваем окно загрузки заказов
+    window.simulation.auftraegeQueue = allOrders.filter(auftrag => {
+        if (!auftrag.auftrag_nr) {
+            console.warn(`⚠️ Заказ без номера:`, auftrag);
+            return false;
+        }
+
+        let startDay;
+        if (typeof auftrag.Start === 'number') {
+            startDay = auftrag.Start;
+        } else if (typeof auftrag.Start === 'string') {
+            startDay = calculateDayFromDate(auftrag.Start);
+        } else {
+            console.warn(`⚠️ Неправильный формат даты старта для заказа ${auftrag.auftrag_nr}:`, auftrag.Start);
+            return false;
+        }
+
+        const hasWorkPlan = window.simulation.arbeitsplaene.some(
+            plan => plan.auftrag_nr === auftrag.auftrag_nr
+        );
+
+        if (!hasWorkPlan) {
+            console.warn(`⚠️ Нет рабочего плана для заказа ${auftrag.auftrag_nr}`);
+            return false;
+        }
+
+        // ИСПРАВЛЕНИЕ: Загружаем ВСЕ заказы, не только те что должны стартовать в ближайшие 7 дней
+        // Заказы будут обрабатываться когда придет их время
+        const shouldBeLoaded = true; // Загружаем все заказы
+
+        console.log(`  📋 Заказ ${auftrag.auftrag_nr}: старт=${startDay}, загружен=${shouldBeLoaded}`);
+
+        return shouldBeLoaded;
     });
+
+    console.log(`✅ Загружено заказов: ${window.simulation.auftraegeQueue.length}`);
 }
 
 // Новая функция для инициализации состояния заказов
 function initAuftraegeStatus() {
+    console.log("🔄 Инициализация статусов заказов...");
+
     window.simulation.auftraegeStatus = {};
 
+    if (!window.simulation.auftraegeQueue || window.simulation.auftraegeQueue.length === 0) {
+        console.warn("⚠️ Нет заказов в очереди для инициализации!");
+        return;
+    }
+
     for (const auftrag of window.simulation.auftraegeQueue) {
+        // Получаем рабочие планы для заказа
         const arbeitsplaene = getArbeitsplaeneFor(auftrag.auftrag_nr)
-            .sort((a, b) => a.reihenfolge - b.reihenfolge);
+            .sort((a, b) => (a.reihenfolge || 0) - (b.reihenfolge || 0));
+
+        if (arbeitsplaene.length === 0) {
+            console.warn(`⚠️ Нет рабочих планов для заказа ${auftrag.auftrag_nr}`);
+            continue;
+        }
 
         const currentTime = window.simulation.currentTimeMinutes;
 
+        // Создаем статус заказа
         window.simulation.auftraegeStatus[auftrag.auftrag_nr] = {
             currentStep: 0,
             arbeitsplaene: arbeitsplaene,
             completed: false,
             waiting: false,
             anzahl: auftrag.Anzahl || 1,
-
-            // НОВЫЕ ПОЛЯ для статистики
             enteredSystemTime: currentTime,
-            waitingStartTime: null,
+            waitingStartTime: currentTime, // Начинаем ожидание сразу
             totalWaitingTime: 0,
             currentOperationStartTime: null,
             operationHistory: [],
             bufferEntryTime: null,
         };
 
-// Инициализируем статистику заказа
+        // Инициализируем статистику заказа
         window.simulation.statistics.orderStatistics[auftrag.auftrag_nr] = {
             startTime: null,
             endTime: null,
@@ -146,7 +203,11 @@ function initAuftraegeStatus() {
             operationHistory: [],
             enteredSystemTime: currentTime
         };
+
+        console.log(`✅ Инициализирован заказ ${auftrag.auftrag_nr} с ${arbeitsplaene.length} операциями`);
     }
+
+    console.log(`✅ Инициализировано ${Object.keys(window.simulation.auftraegeStatus).length} заказов`);
 }
 
 // Функция для получения рабочих планов для конкретного заказа
@@ -262,7 +323,7 @@ function getCurrentDay() {
 function getCurrentDate() {
     const dayNumber = getCurrentDay();
     // Базовая дата - 1 января 2020 года (день 0)
-    const baseDate = new Date('2020-01-01');
+    const baseDate = new Date('2022-01-01');
     const currentDate = new Date(baseDate);
     currentDate.setDate(baseDate.getDate() + dayNumber);
     return currentDate;
@@ -320,6 +381,13 @@ function isMachineWorkingTime(machine) {
     // Проверяем доступность машины по датам
     if (!isMachineAvailable(machine)) return false;
 
+    // Проверяем, не выходной ли день (суббота = 6, воскресенье = 0)
+    const currentDate = getCurrentDate();
+    const dayOfWeek = currentDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return false; // Воскресенье или суббота - выходной
+    }
+
     const timeInDay = getCurrentTimeInDay();
     const workingHours = machine.Kap_Tag * 60; // Переводим часы в минуты
 
@@ -329,408 +397,538 @@ function isMachineWorkingTime(machine) {
 
     const isWorkingTime = timeInDay >= workStart && timeInDay < workEnd;
 
-
     return isWorkingTime;
 }
 
 // Новая функция для проверки, работает ли машина в данное время с учетом доступности
 function isMachineWorkingTimeAndAvailable(machine) {
-    // Сначала проверяем доступность машины по датам
-    if (!isMachineAvailable(machine)) return false;
-
-    // Затем проверяем рабочее время
-    const timeInDay = getCurrentTimeInDay();
-    const workingHours = machine.Kap_Tag * 60; // Переводим часы в минуты
-
-    // Предполагаем, что рабочий день начинается в 08:00 (480 минут от начала дня)
-    const workStart = 8 * 60; // 08:00
-    const workEnd = workStart + workingHours;
-
-    return timeInDay >= workStart && timeInDay < workEnd;
+    // Используем уже существующую функцию, которая проверяет все условия
+    return isMachineWorkingTime(machine);
 }
 
-function simulationStep() {
-    // Получаем скорость симуляции (сколько виртуальных минут за один шаг)
-    const totalSpeed = getCurrentSimulationSpeed();
+// Основные исправления для завершения симуляции
 
-    // Разбиваем большие шаги на более мелкие, чтобы не пропускать рабочее время
-    const maxStepSize = 60; // Максимум 1 час за один внутренний шаг
+// 1. ИСПРАВЛЕННАЯ функция checkSimulationCompletion
+function checkSimulationCompletion() {
+    if (!window.simulation.isRunning) {
+        return false;
+    }
+
+    const currentDay = getCurrentDay();
+    const hasActiveTasks = window.simulation.activeTasks.length > 0;
+
+    console.log(`🔍 Проверка завершения симуляции (день ${currentDay}):`);
+    console.log(`  - Активных задач: ${window.simulation.activeTasks.length}`);
+
+    // Получаем все заказы, которые уже должны были начаться
+    const readyOrders = window.simulation.auftraegeQueue.filter(auftrag => {
+        let startDay;
+        if (typeof auftrag.Start === 'number') {
+            startDay = auftrag.Start;
+        } else if (typeof auftrag.Start === 'string') {
+            startDay = calculateDayFromDate(auftrag.Start);
+        } else {
+            return false;
+        }
+        return startDay <= currentDay;
+    });
+
+    // Получаем незавершенные заказы из тех, что уже должны были начаться
+    const incompleteReadyOrders = readyOrders.filter(auftrag => {
+        const status = window.simulation.auftraegeStatus[auftrag.auftrag_nr];
+        return status && !status.completed;
+    });
+
+    console.log(`  - Заказов готовых к обработке: ${readyOrders.length}`);
+    console.log(`  - Незавершенных готовых заказов: ${incompleteReadyOrders.length}`);
+
+    // Проверяем очереди машин на наличие готовых заказов
+    let totalQueuedReadyOrders = 0;
+    Object.values(window.simulation.maschinenStatus).forEach(machineStatus => {
+        const queuedReadyOrders = machineStatus.queue.filter(queueItem => {
+            const auftrag = window.simulation.auftraegeQueue.find(a => a.auftrag_nr === queueItem.auftrag_nr);
+            if (!auftrag) return false;
+
+            let startDay;
+            if (typeof auftrag.Start === 'number') {
+                startDay = auftrag.Start;
+            } else if (typeof auftrag.Start === 'string') {
+                startDay = calculateDayFromDate(auftrag.Start);
+            }
+            return startDay <= currentDay;
+        });
+        totalQueuedReadyOrders += queuedReadyOrders.length;
+    });
+
+    console.log(`  - Готовых заказов в очередях машин: ${totalQueuedReadyOrders}`);
+
+    // Проверяем, есть ли заказы, которые еще не начались
+    const futureOrders = window.simulation.auftraegeQueue.filter(auftrag => {
+        let startDay;
+        if (typeof auftrag.Start === 'number') {
+            startDay = auftrag.Start;
+        } else if (typeof auftrag.Start === 'string') {
+            startDay = calculateDayFromDate(auftrag.Start);
+        }
+        return startDay > currentDay;
+    });
+
+    console.log(`  - Заказов в будущем: ${futureOrders.length}`);
+
+    // УСЛОВИЕ ЗАВЕРШЕНИЯ: нет активных задач, нет незавершенных готовых заказов, нет готовых заказов в очередях
+    const shouldComplete = !hasActiveTasks &&
+        incompleteReadyOrders.length === 0 &&
+        totalQueuedReadyOrders === 0;
+
+    if (shouldComplete) {
+        if (futureOrders.length > 0) {
+            // Есть заказы в будущем - переходим к следующему заказу
+            const nextOrderStartDays = futureOrders.map(auftrag => {
+                if (typeof auftrag.Start === 'number') {
+                    return auftrag.Start;
+                } else if (typeof auftrag.Start === 'string') {
+                    return calculateDayFromDate(auftrag.Start);
+                }
+                return Infinity;
+            }).filter(day => day !== Infinity);
+
+            if (nextOrderStartDays.length > 0) {
+                const nextOrderDay = Math.min(...nextOrderStartDays);
+                const minutesToJump = (nextOrderDay - currentDay) * 24 * 60;
+
+                console.log(`⏭️ Перепрыгиваем на день ${nextOrderDay} (${minutesToJump} минут)`);
+                window.simulation.currentTimeMinutes += minutesToJump;
+                addActivity(`Переход ко дню ${nextOrderDay}`);
+                return false; // Продолжаем симуляцию
+            }
+        }
+
+        // Все заказы завершены - НЕМЕДЛЕННО останавливаем
+        const completedOrdersCount = Object.values(window.simulation.auftraegeStatus)
+            .filter(status => status.completed).length;
+
+        console.log("🎉 ВСЕ ЗАКАЗЫ ЗАВЕРШЕНЫ! ОСТАНАВЛИВАЕМ СИМУЛЯЦИЮ НЕМЕДЛЕННО!");
+        addActivity(`🎉 СИМУЛЯЦИЯ ЗАВЕРШЕНА! Обработано заказов: ${completedOrdersCount}`);
+
+        stopSimulation();
+        return true; // Завершаем симуляцию
+    }
+
+    return false;
+}
+
+// 2. ИСПРАВЛЕННАЯ функция simulationStep с улучшенной логикой
+function simulationStep() {
+    console.log("🔄 === НАЧАЛО ШАГА СИМУЛЯЦИИ ===");
+    console.log(`⏰ Текущее время: ${window.simulation.currentTimeMinutes} мин (день ${getCurrentDay()})`);
+
+    const totalSpeed = getCurrentSimulationSpeed();
+    const maxStepSize = 60;
     let remainingTime = totalSpeed;
 
     while (remainingTime > 0) {
-        // Определяем размер текущего шага
         const currentStepSize = Math.min(remainingTime, maxStepSize);
         window.simulation.statistics.totalSimulationTime += currentStepSize;
-
-        // Увеличиваем виртуальное время на текущий шаг
         window.simulation.currentTimeMinutes += currentStepSize;
         remainingTime -= currentStepSize;
 
-        const currentDate = getCurrentDate();
-        debugMachineStatus();
+        // Обновляем статус машин
+        updateMachineStatuses();
 
-        // Проверяем рабочее время для всех машин
-        Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
-            const machineStatus = window.simulation.maschinenStatus[machineId];
-            const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
+        // Добавляем готовые заказы в очереди машин
+        processReadyOrders();
 
-            if (!machineData) {
-                console.warn(`⚠️ Данные машины ${machineId} не найдены!`);
-                return;
-            }
+        // Запускаем задачи с машин
+        startNewTasks();
 
-            // Проверяем доступность машины по датам
-            const isAvailable = isMachineAvailable(machineData);
-            // Проверяем рабочее время
-            const isWorkingTime = isMachineWorkingTime(machineData);
+        // Обрабатываем активные задачи
+        processActiveTasks();
 
-            // Проверяем, есть ли у машины активная задача
-            const activeTask = window.simulation.activeTasks.find(task => task.maschine == machineId);
-            const hasActiveTask = Boolean(activeTask);
+        // Очищаем завершенные заказы
+        cleanupCompletedOrders();
 
-            // Обновляем статус машины
-            machineStatus.verfuegbar = isAvailable;
-            machineStatus.hasUnfinishedTask = hasActiveTask;
-            machineStatus.waitingForWorkingTime = hasActiveTask && isAvailable && !isWorkingTime;
-            machineStatus.canStartNewTask = isAvailable && isWorkingTime && machineStatus.frei; // ДОБАВИТЬ && machineStatus.frei
-            // Логика приостановки/возобновления задач
-            if ((!isWorkingTime || !isAvailable) && hasActiveTask) {
-                if (!activeTask.paused) {
-                    activeTask.paused = true;
-                    activeTask.pauseStartTime = window.simulation.currentTimeMinutes; // ДОБАВИТЬ
-                    const reason = !isAvailable ? 'машина недоступна' : 'конец рабочего дня';
-                    addActivity(`Машина ${machineId} остановлена (${reason})`);
-                    console.log(`⏸️ Машина ${machineId} приостановила работу: ${reason}`);
-                }
-            } else if (isWorkingTime && isAvailable && hasActiveTask) {
-                if (activeTask.paused) {
-                    activeTask.paused = false;
-                    // ДОБАВИТЬ подсчет времени паузы
-                    if (activeTask.pauseStartTime) {
-                        const pauseDuration = window.simulation.currentTimeMinutes - activeTask.pauseStartTime;
-                        activeTask.pausedTotalTime = (activeTask.pausedTotalTime || 0) + pauseDuration;
-                        activeTask.pauseStartTime = null;
-                    }
-                    addActivity(`Машина ${machineId} возобновила работу`);
-                    console.log(`▶️ Машина ${machineId} возобновила работу`);
-                }
-            }
-        });
-
-        // Завершение активных задач
-        window.simulation.activeTasks = window.simulation.activeTasks.filter(task => {
-            const maschine = window.simulation.maschinenStatus[task.maschine];
-            if (!maschine) {
-                console.warn(`⚠️ Машина ${task.maschine} не найдена!`);
-                return false;
-            }
-
-            // Если задача приостановлена (машина не работает), не уменьшаем время
-            if (task.paused) {
-                return true;
-            }
-
-            // Уменьшаем оставшееся время задачи на текущий размер шага
-            task.remaining -= currentStepSize;
-
-            // Рассчитываем количество обработанных штук на основе прогресса
-            const progress = 1 - (task.remaining / task.totalDuration);
-            task.processedUnits = Math.floor(progress * task.anzahl);
-
-            console.log(`⏳ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} hat noch ${Math.max(0, task.remaining)}min übrig (${task.processedUnits}/${task.anzahl} шт.)`);
-
-            if (task.remaining <= 0) {
-                const currentTime = window.simulation.currentTimeMinutes;
-                const auftragStatus = window.simulation.auftraegeStatus[task.auftrag_nr];
-                const orderStats = window.simulation.statistics.orderStatistics[task.auftrag_nr];
-                const machineStats = window.simulation.statistics.machineUtilization[task.maschine];
-
-                // Освобождаем машину
-                maschine.frei = true;
-                maschine.hasUnfinishedTask = false;
-                maschine.waitingForWorkingTime = false;
-
-                // Если это НЕ последняя операция, заказ идет в буфер следующей машины
-                if (auftragStatus.currentStep < auftragStatus.arbeitsplaene.length - 1) {
-                    const nextOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep + 1];
-                    const nextMachineId = nextOperation.maschine;
-                    const nextBuffer = window.simulation.statistics.bufferStatistics[nextMachineId];
-                    if (nextBuffer) {
-                        nextBuffer.orderHistory.push({
-                            auftrag_nr: task.auftrag_nr,
-                            entryTime: currentTime,
-                            exitTime: null,
-                            quantity: task.anzahl
-                        });
-                    }
-                }
-
-                const machineData = window.simulation.maschinen.find(m => m.Nr == task.maschine);
-                maschine.canStartNewTask = isMachineAvailable(machineData) && isMachineWorkingTime(machineData);
-
-                // ЗАПИСЫВАЕМ СТАТИСТИКУ ОПЕРАЦИИ
-                const operationDuration = currentTime - task.startTime;
-                const processingTime = task.totalDuration; // Чистое время обработки
-
-                const operationRecord = {
-                    machineId: task.maschine,
-                    operationNumber: task.operation,
-                    startTime: task.startTime,
-                    endTime: currentTime,
-                    processingTime: processingTime,
-                    waitingTimeBefore: task.waitingTimeBefore,
-                    quantity: task.anzahl,
-                    pausedTime: task.pausedTotalTime
-                };
-
-                // Добавляем в статистику заказа
-                orderStats.operations.push(operationRecord);
-                orderStats.totalProcessingTime += processingTime;
-                orderStats.totalWaitingTime += task.waitingTimeBefore;
-
-                // Обновляем статистику машины
-                machineStats.operationsCompleted++;
-                machineStats.totalPartsProcessed += task.anzahl;
-
-                console.log(`✅ Auftrag ${task.auftrag_nr} на Maschine ${task.maschine} abgeschlossen (${task.anzahl} шт. обработано)`);
-                addActivity(`Операция заказа ${task.auftrag_nr} завершена на машине ${task.maschine} (${task.anzahl} шт.)`);
-
-                // Обновляем состояние заказа
-                if (auftragStatus) {
-                    auftragStatus.currentStep++;
-                    auftragStatus.waiting = false;
-                    auftragStatus.currentOperationStartTime = null;
-
-                    // Проверяем, завершен ли весь заказ
-                    if (auftragStatus.currentStep >= auftragStatus.arbeitsplaene.length) {
-                        auftragStatus.completed = true;
-
-                        // ФИНАЛЬНАЯ СТАТИСТИКА ЗАКАЗА
-                        orderStats.endTime = currentTime;
-                        orderStats.totalLeadTime = currentTime - orderStats.startTime;
-                        orderStats.totalWaitingTime = auftragStatus.totalWaitingTime;
-
-                        console.log(`🎉 Заказ ${task.auftrag_nr} полностью завершен! (${auftragStatus.anzahl} шт.)`);
-                        console.log(`📊 Статистика заказа ${task.auftrag_nr}:`, orderStats);
-                        addActivity(`Заказ ${task.auftrag_nr} полностью завершен (${auftragStatus.anzahl} шт.)`);
-                        window.simulation.statistics.completedTasks++;
-                        window.simulation.statistics.totalProcessingTime += processingTime;
-                    } else {
-                        // Заказ переходит к следующей операции - начинается ожидание
-                        auftragStatus.waitingStartTime = currentTime;
-                    }
-                }
-
-                return false;
-            }
-            return true;
-        });
-
-        // Проверяем, есть ли новые заказы для текущего дня
-        const newAuftraege = window.simulation.auftraege.filter(auftrag =>
-            auftrag.Start === getCurrentDay() &&
-            !window.simulation.auftraegeQueue.find(existing => existing.auftrag_nr === auftrag.auftrag_nr)
-        );
-
-        if (newAuftraege.length > 0) {
-            window.simulation.auftraegeQueue.push(...newAuftraege);
-
-            // Инициализируем состояние для новых заказов
-            for (const auftrag of newAuftraege) {
-                const arbeitsplaene = getArbeitsplaeneFor(auftrag.auftrag_nr)
-                    .sort((a, b) => a.reihenfolge - b.reihenfolge);
-
-                const currentTime = window.simulation.currentTimeMinutes;
-
-                window.simulation.auftraegeStatus[auftrag.auftrag_nr] = {
-                    currentStep: 0,
-                    arbeitsplaene: arbeitsplaene,
-                    completed: false,
-                    waiting: false,
-                    anzahl: auftrag.Anzahl || 1,
-
-                    // НОВЫЕ ПОЛЯ для статистики
-                    enteredSystemTime: currentTime,
-                    waitingStartTime: null,
-                    totalWaitingTime: 0,
-                    currentOperationStartTime: null,
-                    operationHistory: []
-                };
-
-// Инициализируем статистику заказа
-                window.simulation.statistics.orderStatistics[auftrag.auftrag_nr] = {
-                    startTime: null,
-                    endTime: null,
-                    totalLeadTime: 0,
-                    operations: [],
-                    totalProcessingTime: 0,
-                    totalWaitingTime: 0,
-                    quantity: auftrag.Anzahl || 1,
-                    machinesUsed: [],
-                    operationHistory: [],
-                    enteredSystemTime: currentTime
-                };
-            }
-
-            console.log(`📥 Добавлено ${newAuftraege.length} новых заказов в очередь`);
-            addActivity(`Добавлено ${newAuftraege.length} новых заказов`);
-        }
-
-        // Назначение новых задач
-        for (const auftrag of window.simulation.auftraegeQueue) {
-            const auftragStatus = window.simulation.auftraegeStatus[auftrag.auftrag_nr];
-
-            if (!auftragStatus || auftragStatus.completed) continue;
-
-            const hasActiveTask = window.simulation.activeTasks.some(task => task.auftrag_nr === auftrag.auftrag_nr);
-            if (hasActiveTask) continue;
-
-            const currentOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep];
-            if (!currentOperation) continue;
-
-            const machineId = currentOperation.maschine;
-            const machineStatus = window.simulation.maschinenStatus[machineId];
-
-            // Проверяем, есть ли заказ уже в очереди этой машины
-            const alreadyInQueue = machineStatus.queue.some(item => item.auftrag_nr === auftrag.auftrag_nr);
-
-            if (!alreadyInQueue) {
-                // Добавляем в очередь машины
-                machineStatus.queue.push({
-                    auftrag_nr: auftrag.auftrag_nr,
-                    operation: currentOperation,
-                    anzahl: auftrag.Anzahl || 1
-                });
-                console.log(`📝 Заказ ${auftrag.auftrag_nr} добавлен в очередь машины ${machineId}`);
-            }
-        }
-
-        // После логики добавления в очереди, обрабатываем очереди каждой машины
-        Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
-            const machineStatus = window.simulation.maschinenStatus[machineId];
-            const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
-
-            // Если машина может начать новую задачу и в очереди есть заказы
-            if (machineStatus.canStartNewTask && machineStatus.queue.length > 0) {
-                const nextOrder = machineStatus.queue[0]; // НЕ удаляем из очереди пока
-
-                // ДОБАВИТЬ: Проверяем, свободна ли машина
-                if (!machineStatus.frei) {
-                    // Машина занята, заказ остается в очереди/буфере
-                    return; // или continue для следующей машины
-                }
-
-                machineStatus.queue.shift(); // Берем первый из очереди (FIFO)
-
-                // Запускаем задачу
-                const totalDuration = nextOrder.anzahl * nextOrder.operation.dauer;
-
-                machineStatus.frei = false;
-                machineStatus.hasUnfinishedTask = true;
-                machineStatus.canStartNewTask = false;
-
-                const currentTime = window.simulation.currentTimeMinutes;
-                const auftragStatus = window.simulation.auftraegeStatus[nextOrder.auftrag_nr];
-                const orderStats = window.simulation.statistics.orderStatistics[nextOrder.auftrag_nr];
-
-// Рассчитываем время ожидания
-                let waitingTime = 0;
-                if (auftragStatus.waitingStartTime) {
-                    waitingTime = currentTime - auftragStatus.waitingStartTime;
-                    auftragStatus.totalWaitingTime += waitingTime;
-                    auftragStatus.waitingStartTime = null;
-                }
-
-// Устанавливаем время начала операции
-                auftragStatus.currentOperationStartTime = currentTime;
-
-// Если это первая операция, устанавливаем startTime
-                if (orderStats.startTime === null) {
-                    orderStats.startTime = currentTime;
-                }
-
-                // Проверяем буфер только если это НЕ первая операция
-                const currentBuffer = window.simulation.statistics.bufferStatistics[machineId];
-                let canStartDueToBuffer = true;
-
-                // Отмечаем выход из буфера (если заказ был в буфере)
-                if (auftragStatus.currentStep > 0) {
-                    const currentBuffer = window.simulation.statistics.bufferStatistics[machineId];
-                    const orderInBuffer = currentBuffer.orderHistory.find(
-                        item => item.auftrag_nr === nextOrder.auftrag_nr && item.exitTime === null
-                    );
-                    if (orderInBuffer) {
-                        orderInBuffer.exitTime = currentTime;
-                    }
-                } else {
-                    // Если это первая операция, тоже записываем "вход" в систему
-                    const currentBuffer = window.simulation.statistics.bufferStatistics[machineId];
-                    currentBuffer.orderHistory.push({
-                        auftrag_nr: nextOrder.auftrag_nr,
-                        entryTime: currentTime,
-                        exitTime: currentTime, // сразу обрабатывается
-                        quantity: nextOrder.anzahl
-                    });
-                }
-
-// Только если буфер позволяет, запускаем задачу
-                if (!canStartDueToBuffer) return;
-
-                if (auftragStatus.bufferEntryTime) {
-                    const bufferTime = currentTime - auftragStatus.bufferEntryTime;
-                    console.log(`📦 Заказ ${nextOrder.auftrag_nr} находился в буфере ${bufferTime} минут`);
-                    auftragStatus.bufferEntryTime = null; // ДОБАВИТЬ
-                }
-
-                window.simulation.activeTasks.push({
-                    auftrag_nr: nextOrder.auftrag_nr,
-                    maschine: machineId,
-                    remaining: totalDuration,
-                    operation: auftragStatus.currentStep + 1,
-                    paused: false,
-                    anzahl: nextOrder.anzahl,
-                    dauerPerUnit: nextOrder.operation.dauer,
-                    processedUnits: 0,
-                    totalDuration: totalDuration,
-
-                    // НОВЫЕ ПОЛЯ для статистики
-                    startTime: currentTime,
-                    waitingTimeBefore: waitingTime,
-                    pausedTotalTime: 0
-                });
-
-// Добавляем машину в список использованных
-                if (!orderStats.machinesUsed.includes(machineId)) {
-                    orderStats.machinesUsed.push(machineId);
-                }
-
-                console.log(`🚀 Из очереди запущен заказ ${nextOrder.auftrag_nr} на машине ${machineId}`);
-            }
-        });
-
-        // Удаляем завершенные заказы из очереди
-        window.simulation.auftraegeQueue = window.simulation.auftraegeQueue.filter(auftrag => {
-            const auftragStatus = window.simulation.auftraegeStatus[auftrag.auftrag_nr];
-            return auftragStatus && !auftragStatus.completed;
-        });
-
-        // Обновление статистики использования машин
         updateMachineUtilization();
 
-        // Проверка на завершение симуляции
-        if (window.simulation.activeTasks.length === 0 && window.simulation.auftraegeQueue.length === 0) {
-            stopSimulation();
-            addActivity("Все заказы завершены");
-            console.log("🏁 Симуляция завершена - все заказы обработаны");
-            break; // Выходим из цикла while
+        // *** ДОБАВЛЯЕМ ПРОВЕРКУ ЗАВЕРШЕНИЯ ВНУТРИ ЦИКЛА ***
+        // Проверяем завершение симуляции после каждого мини-шага
+        const completed = checkSimulationCompletion();
+        if (completed) {
+            console.log("✅ Симуляция завершена внутри шага, прерываем обработку");
+            return; // Выходим из функции немедленно
         }
     }
 
-    console.log("Активные задачи:", window.simulation.activeTasks);
-    console.log("Состояние заказов:", window.simulation.auftraegeStatus);
-
+    // Если дошли до конца без завершения - обновляем отображение
     draw();
+
+    console.log("=== КОНЕЦ ШАГА СИМУЛЯЦИИ ===\n");
 }
+
+// 3. Вспомогательные функции для лучшей структуры кода
+function updateMachineStatuses() {
+    Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+        const machineStatus = window.simulation.maschinenStatus[machineId];
+        const machineData = window.simulation.maschinen.find(m => m.Nr == machineId);
+
+        if (machineData) {
+            const isAvailable = isMachineAvailable(machineData);
+            const isWorkingTime = isMachineWorkingTimeAndAvailable(machineData);
+            const activeTask = window.simulation.activeTasks.find(task => task.maschine == machineId);
+            const hasActiveTask = Boolean(activeTask);
+
+            machineStatus.verfuegbar = isAvailable;
+            machineStatus.hasUnfinishedTask = hasActiveTask;
+
+            // ИСПРАВЛЕНИЕ: Корректная логика определения состояния машины
+            if (hasActiveTask && !isWorkingTime) {
+                // Есть задача, но не рабочее время - машина ждет
+                machineStatus.waitingForWorkingTime = true;
+                machineStatus.frei = false; // Машина занята (хотя и на паузе)
+                machineStatus.canStartNewTask = false;
+            } else if (hasActiveTask && isWorkingTime) {
+                // Есть задача и рабочее время - машина работает
+                machineStatus.waitingForWorkingTime = false;
+                machineStatus.frei = false;
+                machineStatus.canStartNewTask = false;
+            } else if (!hasActiveTask && isWorkingTime && isAvailable) {
+                // Нет задач, рабочее время, доступна - может начать новую задачу
+                machineStatus.waitingForWorkingTime = false;
+                machineStatus.frei = true;
+                machineStatus.canStartNewTask = true;
+            } else {
+                // Все остальные случаи - не может начать новую задачу
+                machineStatus.waitingForWorkingTime = false;
+                machineStatus.frei = true;
+                machineStatus.canStartNewTask = false;
+            }
+        }
+    });
+}
+
+function processReadyOrders() {
+    const currentDay = getCurrentDay();
+
+    for (const auftrag of window.simulation.auftraegeQueue) {
+        const auftragStatus = window.simulation.auftraegeStatus[auftrag.auftrag_nr];
+
+        // Пропускаем завершенные заказы
+        if (!auftragStatus || auftragStatus.completed) {
+            continue;
+        }
+
+        // Проверяем, пришло ли время для начала заказа
+        let startDay;
+        if (typeof auftrag.Start === 'number') {
+            startDay = auftrag.Start;
+        } else if (typeof auftrag.Start === 'string') {
+            startDay = calculateDayFromDate(auftrag.Start);
+        } else {
+            continue;
+        }
+
+        if (startDay > currentDay) {
+            continue; // Заказ еще не готов
+        }
+
+        // Пропускаем заказы с активными задачами
+        const hasActiveTask = window.simulation.activeTasks.some(task => task.auftrag_nr === auftrag.auftrag_nr);
+        if (hasActiveTask) {
+            continue;
+        }
+
+        const currentOperation = auftragStatus.arbeitsplaene[auftragStatus.currentStep];
+        if (!currentOperation) {
+            continue;
+        }
+
+        const machineId = currentOperation.maschine;
+        const machineStatus = window.simulation.maschinenStatus[machineId];
+
+        if (!machineStatus) {
+            console.warn(`⚠️ Машина ${machineId} не найдена!`);
+            continue;
+        }
+
+        // Добавляем в очередь если еще не там
+        const alreadyInQueue = machineStatus.queue.some(item => item.auftrag_nr === auftrag.auftrag_nr);
+        if (!alreadyInQueue) {
+            machineStatus.queue.push({
+                auftrag_nr: auftrag.auftrag_nr,
+                operation: currentOperation,
+                anzahl: auftrag.Anzahl || 1
+            });
+            console.log(`📝 Заказ ${auftrag.auftrag_nr} добавлен в очередь машины ${machineId}`);
+        }
+    }
+}
+
+function startNewTasks() {
+    Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+        const machineStatus = window.simulation.maschinenStatus[machineId];
+
+        if (machineStatus.queue.length === 0) {
+            return;
+        }
+
+        const canStart = machineStatus.canStartNewTask &&
+            machineStatus.frei &&
+            !machineStatus.hasUnfinishedTask;
+
+        if (!canStart) {
+            return;
+        }
+
+        const nextOrder = machineStatus.queue.shift();
+        const totalDuration = nextOrder.anzahl * nextOrder.operation.dauer;
+        const currentTime = window.simulation.currentTimeMinutes;
+
+        // Обновляем статус машины
+        machineStatus.frei = false;
+        machineStatus.hasUnfinishedTask = true;
+        machineStatus.canStartNewTask = false;
+
+        const auftragStatus = window.simulation.auftraegeStatus[nextOrder.auftrag_nr];
+        const orderStats = window.simulation.statistics.orderStatistics[nextOrder.auftrag_nr];
+
+        // Рассчитываем время ожидания
+        let waitingTime = 0;
+        if (auftragStatus.waitingStartTime) {
+            waitingTime = currentTime - auftragStatus.waitingStartTime;
+            auftragStatus.totalWaitingTime += waitingTime;
+            auftragStatus.waitingStartTime = null;
+        }
+
+        auftragStatus.currentOperationStartTime = currentTime;
+
+        if (orderStats.startTime === null) {
+            orderStats.startTime = currentTime;
+        }
+
+        // Создаем активную задачу
+        const newTask = {
+            auftrag_nr: nextOrder.auftrag_nr,
+            maschine: machineId,
+            remaining: totalDuration,
+            operation: auftragStatus.currentStep + 1,
+            paused: false,
+            anzahl: nextOrder.anzahl,
+            dauerPerUnit: nextOrder.operation.dauer,
+            processedUnits: 0,
+            totalDuration: totalDuration,
+            startTime: currentTime,
+            waitingTimeBefore: waitingTime,
+            pausedTotalTime: 0
+        };
+
+        window.simulation.activeTasks.push(newTask);
+
+        if (!orderStats.machinesUsed.includes(machineId)) {
+            orderStats.machinesUsed.push(machineId);
+        }
+
+        console.log(`🚀 ЗАДАЧА ЗАПУЩЕНА: Заказ ${nextOrder.auftrag_nr} на машине ${machineId}, длительность: ${totalDuration} мин`);
+        addActivity(`Запущена обработка заказа ${nextOrder.auftrag_nr} на машине ${machineId}`);
+    });
+}
+
+function processActiveTasks() {
+    window.simulation.activeTasks = window.simulation.activeTasks.filter(task => {
+        const machineData = window.simulation.maschinen.find(m => m.Nr == task.maschine);
+
+        if (!machineData) {
+            console.error(`❌ Машина ${task.maschine} не найдена!`);
+            return false; // Удаляем задачу с несуществующей машиной
+        }
+
+        // ИСПРАВЛЕНИЕ: Проверяем, может ли машина работать сейчас
+        const canWork = isMachineWorkingTimeAndAvailable(machineData);
+
+        if (!canWork) {
+            // Машина не может работать - ставим задачу на паузу
+            if (!task.paused) {
+                task.paused = true;
+                task.pauseStartTime = window.simulation.currentTimeMinutes;
+                console.log(`⏸️ Задача ${task.auftrag_nr} на машине ${task.maschine} поставлена на паузу (нерабочее время)`);
+            }
+            return true; // Сохраняем задачу, но не обрабатываем
+        } else {
+            // Машина может работать - снимаем с паузы если нужно
+            if (task.paused) {
+                task.paused = false;
+                const pauseDuration = window.simulation.currentTimeMinutes - (task.pauseStartTime || 0);
+                task.pausedTotalTime = (task.pausedTotalTime || 0) + pauseDuration;
+                console.log(`▶️ Задача ${task.auftrag_nr} на машине ${task.maschine} снята с паузы (продолжительность паузы: ${pauseDuration} мин)`);
+            }
+        }
+
+        // ИСПРАВЛЕНИЕ: Обрабатываем только НЕ приостановленные задачи
+        if (task.paused) {
+            return true; // Сохраняем, но не обрабатываем
+        }
+
+        const currentStepSize = Math.min(window.simulation.simulationMinutesPerStep, 60);
+        task.remaining -= currentStepSize;
+        task.processedUnits = Math.floor((1 - task.remaining / task.totalDuration) * task.anzahl);
+
+        if (task.remaining <= 0) {
+            console.log(`✅ Задача завершена: ${task.auftrag_nr} на машине ${task.maschine}`);
+
+            // Освобождаем машину
+            const maschine = window.simulation.maschinenStatus[task.maschine];
+            maschine.frei = true;
+            maschine.hasUnfinishedTask = false;
+
+            // Обновляем статус заказа
+            const auftragStatus = window.simulation.auftraegeStatus[task.auftrag_nr];
+            const orderStats = window.simulation.statistics.orderStatistics[task.auftrag_nr];
+
+            if (auftragStatus) {
+                auftragStatus.currentStep++;
+
+                if (auftragStatus.currentStep >= auftragStatus.arbeitsplaene.length) {
+                    // Заказ полностью завершен
+                    auftragStatus.completed = true;
+
+                    // Обновляем статистику заказа
+                    if (orderStats) {
+                        orderStats.endTime = window.simulation.currentTimeMinutes;
+                        orderStats.totalLeadTime = orderStats.endTime - orderStats.enteredSystemTime;
+                        orderStats.totalProcessingTime += task.totalDuration;
+                        orderStats.totalWaitingTime = auftragStatus.totalWaitingTime;
+                    }
+
+                    window.simulation.statistics.completedTasks++;
+                    console.log(`🎉 Заказ ${task.auftrag_nr} полностью завершен!`);
+                    addActivity(`Заказ ${task.auftrag_nr} завершен полностью`);
+                } else {
+                    // Переходим к следующей операции
+                    auftragStatus.waitingStartTime = window.simulation.currentTimeMinutes;
+                    console.log(`➡️ Заказ ${task.auftrag_nr} переходит к операции ${auftragStatus.currentStep + 1}`);
+                }
+            }
+
+            return false; // Удаляем завершенную задачу
+        }
+        return true;
+    });
+}
+
+function cleanupCompletedOrders() {
+    // Удаляем завершенные заказы из основной очереди
+    const initialQueueLength = window.simulation.auftraegeQueue.length;
+    window.simulation.auftraegeQueue = window.simulation.auftraegeQueue.filter(auftrag => {
+        const auftragStatus = window.simulation.auftraegeStatus[auftrag.auftrag_nr];
+        const isCompleted = auftragStatus && auftragStatus.completed;
+
+        if (isCompleted) {
+            console.log(`🗑️ Удаляем завершенный заказ ${auftrag.auftrag_nr} из очереди`);
+        }
+
+        return !isCompleted;
+    });
+
+    // Очищаем очереди машин от завершенных заказов
+    Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+        const machineStatus = window.simulation.maschinenStatus[machineId];
+        machineStatus.queue = machineStatus.queue.filter(queueItem => {
+            const auftragStatus = window.simulation.auftraegeStatus[queueItem.auftrag_nr];
+            return auftragStatus && !auftragStatus.completed;
+        });
+    });
+}
+
+// 4. Дополнительная функция диагностики для отладки
+function debugSimulationState() {
+    console.log("🔍 === ДИАГНОСТИКА СОСТОЯНИЯ СИМУЛЯЦИИ ===");
+
+    const currentDay = getCurrentDay();
+    console.log(`📅 Текущий день: ${currentDay}`);
+    console.log(`⚡ Активных задач: ${window.simulation.activeTasks.length}`);
+    console.log(`📦 Заказов в очереди: ${window.simulation.auftraegeQueue.length}`);
+
+    // Анализ заказов по статусу
+    const ordersByStatus = {
+        notStarted: 0,
+        inProgress: 0,
+        completed: 0
+    };
+
+    Object.keys(window.simulation.auftraegeStatus).forEach(auftragNr => {
+        const status = window.simulation.auftraegeStatus[auftragNr];
+        const auftrag = window.simulation.auftraegeQueue.find(a => a.auftrag_nr === auftragNr);
+
+        if (status.completed) {
+            ordersByStatus.completed++;
+        } else if (auftrag) {
+            let startDay;
+            if (typeof auftrag.Start === 'number') {
+                startDay = auftrag.Start;
+            } else if (typeof auftrag.Start === 'string') {
+                startDay = calculateDayFromDate(auftrag.Start);
+            }
+
+            if (startDay <= currentDay) {
+                ordersByStatus.inProgress++;
+            } else {
+                ordersByStatus.notStarted++;
+            }
+        }
+    });
+
+    console.log(`📊 Статус заказов:`, ordersByStatus);
+
+    // Анализ очередей машин
+    let totalQueued = 0;
+    Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
+        const queueLength = window.simulation.maschinenStatus[machineId].queue.length;
+        totalQueued += queueLength;
+        if (queueLength > 0) {
+            console.log(`🏭 Машина ${machineId}: ${queueLength} заказов в очереди`);
+        }
+    });
+
+    console.log(`📋 Всего заказов в очередях машин: ${totalQueued}`);
+    console.log("===============================================");
+}
+
+
+function debugDataLoading() {
+    console.log("=== ДИАГНОСТИКА ДАННЫХ ===");
+
+    // Проверяем загруженные данные
+    console.log("📦 Заказы (auftraege):", window.simulation.auftraege);
+    console.log("📋 Рабочие планы (arbeitsplaene):", window.simulation.arbeitsplaene);
+    console.log("🏭 Машины (maschinen):", window.simulation.maschinen);
+
+    // Проверяем отфильтрованные заказы
+    console.log("📋 Заказы в очереди (auftraegeQueue):", window.simulation.auftraegeQueue);
+    console.log("📊 Статусы заказов (auftraegeStatus):", window.simulation.auftraegeStatus);
+
+    // Проверяем текущий день
+    const currentDay = getCurrentDay();
+    console.log("📅 Текущий день симуляции:", currentDay);
+    console.log("📅 Текущая дата:", getCurrentDate().toISOString().split('T')[0]);
+
+    // Проверяем каждый заказ индивидуально
+    if (window.simulation.auftraege.length > 0) {
+        console.log("🔍 Детальная проверка заказов:");
+        window.simulation.auftraege.forEach(auftrag => {
+            const shouldBeActive = auftrag.Start <= currentDay;
+            const hasArbeitsplan = window.simulation.arbeitsplaene.some(
+                plan => plan.auftrag_nr === auftrag.auftrag_nr
+            );
+
+            console.log(`  Заказ ${auftrag.auftrag_nr}:`);
+            console.log(`    - Старт: ${auftrag.Start}, Текущий день: ${currentDay}`);
+            console.log(`    - Должен быть активен: ${shouldBeActive}`);
+            console.log(`    - Есть рабочий план: ${hasArbeitsplan}`);
+            console.log(`    - Количество: ${auftrag.Anzahl}`);
+        });
+    }
+
+    console.log("==============================");
+}
+
 
 function debugMachineStatus() {
     console.log("🔍 === ОТЛАДКА СОСТОЯНИЯ МАШИН ===");
@@ -739,6 +937,12 @@ function debugMachineStatus() {
     const currentMinute = currentTime % 60;
 
     console.log(`⏰ Текущее время в симуляции: ${currentHour}:${String(currentMinute).padStart(2, '0')}`);
+    const currentDate = getCurrentDate();
+    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    const dayOfWeek = currentDate.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    console.log(`📅 День недели: ${dayNames[dayOfWeek]} ${isWeekend ? '(ВЫХОДНОЙ)' : '(рабочий)'}`)
+
 
     Object.keys(window.simulation.maschinenStatus).forEach(machineId => {
         const status = window.simulation.maschinenStatus[machineId];
@@ -768,7 +972,7 @@ function initMaschinen(maschinen) {
 
     for (const m of maschinen) {
         const isAvailable = isMachineAvailable(m);
-        const isWorkingTime = isAvailable && isMachineWorkingTime(m);
+        const isWorkingTime = isMachineWorkingTimeAndAvailable(m);
 
         // Для каждой машины создать буферную статистику
 
@@ -777,7 +981,7 @@ function initMaschinen(maschinen) {
             kapTag: m.Kap_Tag,
             bezeichnung: m.Bezeichnung,
             verfuegbar: isAvailable,
-            canStartNewTask: isWorkingTime,
+            canStartNewTask: isWorkingTime && isAvailable,
             hasUnfinishedTask: false, // Есть ли незаконченная задача
             waitingForWorkingTime: false, // Ждет ли начала рабочего времени с незаконченной задачей
             queue: [] // Добавить очередь заказов для каждой машины
@@ -815,8 +1019,7 @@ function updateMachineUtilization() {
 
         if (utilization && machineData) {
             const isAvailable = isMachineAvailable(machineData);
-            const isWorkingTime = isMachineWorkingTime(machineData);
-            const isWorkingTimeAndAvailable = isAvailable && isWorkingTime;
+            const isWorkingTimeAndAvailable = isMachineWorkingTimeAndAvailable(machineData);
 
             if (isWorkingTimeAndAvailable) {
                 utilization.availableTime++;
@@ -854,6 +1057,7 @@ function updateMachineUtilization() {
 // Инициализация при загрузке модуля
 async function initialize() {
     await loadInitialData();
+    debugDataLoading();
     draw(); // Обновляем отображение после загрузки данных
 }
 
@@ -957,7 +1161,14 @@ export {
     getCurrentDate,
     isMachineAvailable,
     isMachineWorkingTimeAndAvailable,
-
+    checkSimulationCompletion,
+    simulationStep,
+    debugSimulationState,
+    updateMachineStatuses,
+    processReadyOrders,
+    startNewTasks,
+    processActiveTasks,
+    cleanupCompletedOrders,
     // НОВЫЕ ФУНКЦИИ СТАТИСТИКИ
     getOrderStatistics,
     getMachineEfficiency,
