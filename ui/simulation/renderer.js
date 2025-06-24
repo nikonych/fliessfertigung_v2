@@ -11,7 +11,8 @@ const COLORS = {
         nonWorking: '#9E9E9E',     // Серый - нерабочее время
         waitingForWorkTime: '#FF9800', // Оранжевый - ждет рабочего времени с заказом
         unavailable: '#F44336',    // Красный - недоступна по датам
-        unknown: '#795548'         // Коричневый - неопределенный статус
+        unknown: '#795548',         // Коричневый - неопределенный статус
+        idle: '#87CEEB'
     },
     task: {
         waiting: '#f39c12',
@@ -294,7 +295,7 @@ function drawHeader(simulation) {
     // Title
     ctx.fillStyle = COLORS.text.primary;
     ctx.font = 'bold 24px Arial';
-    ctx.fillText('🏭 Produktionssimulation', 150, 35);
+    ctx.fillText('🏭 AIN-1-21', 150, 35);
 
     // Current day
     ctx.font = '16px Arial';
@@ -303,11 +304,6 @@ function drawHeader(simulation) {
     // Status
     const status = simulation.isRunning ? '▶️ Läuft' : '⏸️ Gestoppt';
     ctx.fillText(status, canvas.width - 400, 45);
-
-    // Instructions
-    ctx.fillStyle = COLORS.text.secondary;
-    ctx.font = '12px Arial';
-    ctx.fillText('💡 Панели можно перетаскивать за заголовок', 150, 55);
 }
 
 function drawDragHandle(x, y, width, title, isHovered = false) {
@@ -399,6 +395,10 @@ function drawMachine(x, y, machineNr, status, activeTasks) {
     // Die Maschine ist frei, aber aktuell ist keine Arbeitszeit
     fillColor = COLORS.machine.nonWorking;
     statusText = 'Keine Arbeitszeit';
+} else if (status.frei && !status.canStartNewTask && isWorkingTime) {
+    // Die Maschine ist frei, aber kann keine neuen Aufgaben annehmen (z.B. Warteschlange leer)
+    fillColor = COLORS.machine.idle;
+    statusText = 'Bereit';
 } else {
     // Fallback für undefinierte Zustände
     fillColor = COLORS.machine.unknown; // Fügen Sie ggf. diese Farbe hinzu

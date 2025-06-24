@@ -87,7 +87,7 @@ async function createTablesIfNotExist() {
         const maschinenExists = await db.schema.hasTable('Maschine');
         if (!maschinenExists) {
             await db.schema.createTable('Maschine', table => {
-                table.integer('Nr').primary();
+                table.increments('Nr').primary();
                 table.text('Bezeichnung');
                 table.integer('verf_von');
                 table.integer('verf_bis');

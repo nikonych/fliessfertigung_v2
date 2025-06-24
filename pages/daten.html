@@ -2,425 +2,744 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daten</title>
     <style>
-        body {
-            font-family: sans-serif;
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #333;
         }
 
         header {
-            background-color: #005fa3;
-            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
             color: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: 300;
+            margin: 0;
         }
 
         .back {
-            float: right;
-            background-color: white;
-            color: #005fa3;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 25px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
         }
 
         .back:hover {
-            background-color: #f0f0f0;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
 
         .tabs {
             display: flex;
-            background-color: #f0f0f0;
-            border-bottom: 2px solid #ccc;
+            background: white;
+            border-radius: 15px 15px 0 0;
+            margin: 30px 20px 0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
         .tab {
             flex: 1;
             text-align: center;
-            padding: 12px;
+            padding: 20px;
             cursor: pointer;
-            font-weight: bold;
-            transition: background 0.2s;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+            color: #6c757d;
+            position: relative;
         }
 
         .tab:hover {
-            background-color: #ddd;
+            background: #e9ecef;
+            color: #495057;
         }
 
         .tab.active {
-            background-color: white;
-            border-bottom: 3px solid #005fa3;
+            background: white;
+            color: #667eea;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
         }
 
         .section {
             display: none;
-            padding: 20px;
+            background: white;
+            margin: 0 20px 30px;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
 
         .section.active {
             display: block;
         }
 
-        .grid-wrapper {
+        .section-header {
+            padding: 30px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 300;
+            color: #495057;
+            margin-bottom: 20px;
+        }
+
+        .controls {
             display: flex;
-            flex-direction: column;
-            width: 100%;
-            margin-top: 16px;
-            gap: 6px;
-        }
-
-        .grid-row {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 8px;
-            background-color: #fff;
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 4px;
+            gap: 15px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        .grid-row.header {
-            background-color: #e0e7ec;
-            font-weight: bold;
-            border: none;
-            text-transform: uppercase;
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
         }
 
-        /* Специальные grid для разных секций */
-        #auftrage .grid-row {
-            grid-template-columns: 1fr 2fr 2fr 1fr 1fr 1fr 2fr;
-        }
-
-        #arbeitsplan .grid-row {
-            grid-template-columns: 1fr 1fr 2fr 1.5fr 1fr 1fr 1.5fr;
-        }
-
-        .grid-cell {
-            padding: 6px;
-            word-break: break-word;
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .btn {
-            padding: 6px 10px;
-            font-size: 14px;
+            padding: 12px 24px;
             border: none;
-            border-radius: 4px;
+            border-radius: 25px;
             cursor: pointer;
-            margin-right: 5px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
         }
 
         .btn.edit {
-            background-color: #337ab7;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
-            margin: 3px;
+            padding: 8px 16px;
+            font-size: 12px;
         }
 
-        .btn.detail {
-            background-color: #28a745;
+        .btn.edit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
             color: white;
-            margin: 3px;
+            padding: 8px 16px;
+            font-size: 12px;
         }
 
-        .btn.back {
-            background-color: #6c757d;
+        .btn.secondary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        }
+
+        /* Responsive Table */
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .data-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            margin-bottom: 15px;
         }
 
-        .btn:hover {
-            opacity: 0.8;
-        }
-
-        input[type="text"] {
-            border: 1px solid #ccc;
-            border-radius: 4px;
+        .data-table th {
+            padding: 20px 15px;
+            text-align: left;
+            font-weight: 600;
             font-size: 14px;
-            box-sizing: border-box;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        input[type="text"]:focus {
-            border-color: #005fa3;
-            outline: none;
-            box-shadow: 0 0 5px rgba(0, 95, 163, 0.3);
+        .data-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f1f3f4;
+            vertical-align: middle;
         }
 
-        h2 {
-            margin: 0;
+        .data-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background: #f8f9ff;
+            transform: scale(1.001);
+        }
+
+        .data-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+
+        .data-table tbody tr:nth-child(even):hover {
+            background: #f0f2ff;
+        }
+
+        .action-buttons {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
-        h3 {
-            margin-top: 0;
-            color: #005fa3;
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .tabs {
+                margin: 20px 10px 0;
+            }
+
+            .tab {
+                padding: 15px 10px;
+                font-size: 14px;
+            }
+
+            .section {
+                margin: 0 10px 20px;
+            }
+
+            .section-header {
+                padding: 20px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-input {
+                min-width: auto;
+            }
+
+            .table-container {
+                padding: 20px 10px;
+            }
+
+            /* Stack table on mobile */
+            .data-table,
+            .data-table thead,
+            .data-table tbody,
+            .data-table th,
+            .data-table td,
+            .data-table tr {
+                display: block;
+            }
+
+            .data-table thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
+            }
+
+            .data-table tr {
+                background: white;
+                border: 1px solid #e9ecef;
+                border-radius: 10px;
+                margin-bottom: 15px;
+                padding: 15px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            }
+
+            .data-table td {
+                border: none;
+                position: relative;
+                padding: 10px 0 10px 120px;
+                border-bottom: 1px solid #f1f3f4;
+            }
+
+            .data-table td:last-child {
+                border-bottom: none;
+            }
+
+            .data-table td:before {
+                content: attr(data-label);
+                position: absolute;
+                left: 0;
+                width: 110px;
+                padding-right: 10px;
+                white-space: nowrap;
+                font-weight: 600;
+                color: #667eea;
+                font-size: 12px;
+                text-transform: uppercase;
+            }
+
+            .action-buttons {
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
         }
+
+        @media (max-width: 480px) {
+            .header-title {
+                font-size: 22px;
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 13px;
+            }
+
+            .data-table td {
+                padding: 8px 0 8px 100px;
+            }
+
+            .data-table td:before {
+                width: 90px;
+            }
+        }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            backdrop-filter: blur(5px);
+        }
+
         .modal.hidden {
             display: none;
         }
-        .modal {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 999;
-        }
+
         .modal-content {
-            background: #fff;
-            padding: 25px 30px;
-            border-radius: 8px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             min-width: 320px;
-            max-width: 400px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
         }
+
         .modal-content h2 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 20px;
+            margin-bottom: 25px;
+            font-size: 24px;
+            font-weight: 300;
+            color: #333;
+            text-align: center;
         }
+
         .form-group {
-            margin-bottom: 12px;
+            margin-bottom: 20px;
         }
+
         .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
+            color: #555;
         }
-        .form-group input {
+
+        .form-group input,
+        .form-group select {
             width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
         }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
         .modal-actions {
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 8px 14px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .btn.primary {
-            background-color: #007bff;
-            color: white;
-        }
-        .btn.secondary {
-            background-color: #e0e0e0;
-            color: black;
-        }
-        .btn:hover {
-            opacity: 0.9;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
         }
 
+        /* Toast */
         .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: #4caf50;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
-            padding: 12px 20px;
-            border-radius: 6px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-            font-size: 14px;
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+            font-size: 16px;
+            font-weight: 600;
             z-index: 9999;
-            transition: opacity 0.3s ease-in-out;
+            transition: all 0.3s ease;
+            transform: translateX(400px);
         }
-        .toast.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
+
         .toast.show {
-            opacity: 1;
+            transform: translateX(0);
         }
 
-        .btn.secondary {
-            background-color: #ffdddd;
-            color: #a00000;
-        }
-        .btn.secondary:hover {
-            background-color: #ffcccc;
+        .toast.hidden {
+            transform: translateX(400px);
         }
 
+        /* Loading animation */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 50px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state h3 {
+            font-weight: 300;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
 
 <header>
-    <h2>
-        Datenübersicht
-        <button class="back" onclick="window.location.href='home.html'">Zurück</button>
-    </h2>
+    <div class="header-content">
+        <h1 class="header-title">Datenübersicht</h1>
+        <button class="back" onclick="window.location.href='home.html'">← Zurück</button>
+    </div>
 </header>
 
 <div class="tabs">
-    <div class="tab active" data-tab="maschinen">Maschinen</div>
-    <div class="tab" data-tab="auftrage">Aufträge</div>
-    <div class="tab" data-tab="arbeitsplan">Arbeitspläne</div>
+    <div class="tab active" data-tab="maschinen">🔧 Maschinen</div>
+    <div class="tab" data-tab="auftrage">📋 Aufträge</div>
+    <div class="tab" data-tab="arbeitsplan">📅 Arbeitspläne</div>
 </div>
 
 <div id="maschinen" class="section active">
-    <h3>Maschinen</h3>
-    <div id="maschinen-container"></div>
-</div>
-
-<div id="auftrage" class="section">
-    <h3>Aufträge</h3>
-    <div id="auftrage-container"></div>
-</div>
-
-<div id="arbeitsplan" class="section">
-    <h3>Arbeitspläne</h3>
-    <div id="arbeitsplan-container"></div>
-</div>
-
-
-
-
-<div id="modal" class="modal hidden">
-    <div class="modal-content">
-        <h2>Maschine bearbeiten</h2>
-        <div class="form-group">
-            <label>Bezeichnung</label>
-            <input type="text" id="edit-bezeichnung" />
+    <div class="section-header">
+        <h2 class="section-title">Maschinen verwalten</h2>
+        <div class="controls">
+            <input type="text" id="maschinen-search" class="search-input" placeholder="🔍 Suche nach Bezeichnung...">
+            <button id="add-maschine-btn" class="btn primary">➕ Neue Maschine</button>
         </div>
-        <div class="form-group">
-            <label>Verfügbar von</label>
-            <input type="date" id="edit-von" />
+    </div>
+    <div class="table-container">
+        <div id="maschinen-loading" class="loading">
+            <div class="spinner"></div>
         </div>
-        <div class="form-group">
-            <label>Verfügbar bis</label>
-            <input type="date" id="edit-bis" />
+        <div id="maschinen-content" style="display: none;">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Nr</th>
+                    <th>Bezeichnung</th>
+                    <th>Verfügbar von</th>
+                    <th>Verfügbar bis</th>
+                    <th>Kapazität/Tag</th>
+                    <th>Aktionen</th>
+                </tr>
+                </thead>
+                <tbody id="maschinen-tbody">
+                </tbody>
+            </table>
         </div>
-        <div class="form-group">
-            <label>Kapazität pro Tag</label>
-            <input type="number" id="edit-kap" />
-        </div>
-        <div class="modal-actions">
-            <button id="save-btn" class="btn primary">Speichern</button>
-            <button id="cancel-btn" class="btn secondary">Abbrechen</button>
+        <div id="maschinen-empty" class="empty-state" style="display: none;">
+            <h3>Keine Maschinen gefunden</h3>
+            <p>Erstellen Sie Ihre erste Maschine, um zu beginnen.</p>
+            <button class="btn primary">➕ Erste Maschine erstellen</button>
         </div>
     </div>
 </div>
 
+<div id="auftrage" class="section">
+    <div class="section-header">
+        <h2 class="section-title">Aufträge verwalten</h2>
+        <div class="controls">
+            <input type="text" id="auftrag-search" class="search-input" placeholder="🔍 Suche nach Auftrag Nr...">
+            <button id="add-auftrag-btn" class="btn primary">➕ Neuer Auftrag</button>
+        </div>
+    </div>
+    <div class="table-container">
+        <div id="auftraege-loading" class="loading">
+            <div class="spinner"></div>
+        </div>
+        <div id="auftraege-content" style="display: none;">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Auftrag Nr</th>
+                    <th>Anzahl</th>
+                    <th>Start</th>
+                    <th>Aktionen</th>
+                </tr>
+                </thead>
+                <tbody id="auftraege-tbody">
+                </tbody>
+            </table>
+        </div>
+        <div id="auftraege-empty" class="empty-state" style="display: none;">
+            <h3>Keine Aufträge gefunden</h3>
+            <p>Erstellen Sie Ihren ersten Auftrag, um zu beginnen.</p>
+            <button id="add-auftrag-empty-btn" class="btn primary">➕ Erster Auftrag</button>
+        </div>
+    </div>
+</div>
 
+<div id="arbeitsplan" class="section">
+    <div class="section-header">
+        <h2 class="section-title">Arbeitspläne verwalten</h2>
+        <div class="controls">
+            <input type="text" id="arbeitsplan-search" class="search-input" placeholder="🔍 Suche nach Arbeitsplan...">
+            <button id="add-arbeitsplan-btn" class="btn primary">➕ Neuer Arbeitsplan</button>
+        </div>
+    </div>
+    <div class="table-container">
+        <div id="arbeitsplaene-loading" class="loading">
+            <div class="spinner"></div>
+        </div>
+        <div id="arbeitsplaene-content" style="display: none;">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Auftrag Nr</th>
+                    <th>AG Nr</th>
+                    <th>Maschine</th>
+                    <th>Dauer</th>
+                    <th>Aktionen</th>
+                </tr>
+                </thead>
+                <tbody id="arbeitsplaene-tbody">
+                </tbody>
+            </table>
+        </div>
+        <div id="arbeitsplaene-empty" class="empty-state" style="display: none;">
+            <h3>Keine Arbeitspläne gefunden</h3>
+            <p>Erstellen Sie Ihren ersten Arbeitsplan, um zu beginnen.</p>
+            <button id="add-arbeitsplan-empty-btn" class="btn primary">➕ Erster Arbeitsplan</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal für Maschinen -->
+<div id="modal" class="modal hidden">
+    <div class="modal-content">
+        <h2>Maschine bearbeiten</h2>
+        <div class="form-group">
+            <label>Nummer</label>
+            <input type="number" id="edit-nr" min="1"/>
+        </div>
+        <div class="form-group">
+            <label>Bezeichnung</label>
+            <input type="text" id="edit-bezeichnung"/>
+        </div>
+        <div class="form-group">
+            <label>Verfügbar von</label>
+            <input type="date" id="edit-von"/>
+        </div>
+        <div class="form-group">
+            <label>Verfügbar bis</label>
+            <input type="date" id="edit-bis"/>
+        </div>
+        <div class="form-group">
+            <label>Kapazität pro Tag</label>
+            <input type="number" id="edit-kap" min="1"/>
+        </div>
+        <div class="modal-actions">
+            <button id="save-btn" class="btn primary">💾 Speichern</button>
+            <button id="cancel-btn" class="btn secondary">❌ Abbrechen</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal für Aufträge -->
 <div id="auftrag-modal" class="modal hidden">
     <div class="modal-content">
         <h2>Auftrag bearbeiten</h2>
         <div class="form-group">
             <label>Auftrag Nr</label>
-            <input type="text" id="edit-auftrag-nr" disabled />
+            <input type="text" id="edit-auftrag-nr"/>
         </div>
         <div class="form-group">
             <label>Anzahl</label>
-            <input type="number" id="edit-anzahl" />
+            <input type="number" id="edit-anzahl" min="1"/>
         </div>
         <div class="form-group">
-            <label>Startposition</label>
-            <input type="number" id="edit-start" />
+            <label>Startzeit (z.B. 0)</label>
+            <input type="number" id="edit-start" min="0"/>
         </div>
         <div class="modal-actions">
-            <button id="auftrag-save-btn" class="btn primary">Speichern</button>
-            <button id="auftrag-cancel-btn" class="btn secondary">Abbrechen</button>
+            <button id="auftrag-save-btn" class="btn primary">💾 Speichern</button>
+            <button id="auftrag-cancel-btn" class="btn secondary">❌ Abbrechen</button>
         </div>
     </div>
 </div>
 
-
+<!-- Modal für Arbeitspläne -->
 <div id="arbeitsplan-modal" class="modal hidden">
     <div class="modal-content">
         <h2>Arbeitsplan bearbeiten</h2>
         <div class="form-group">
-            <label>Maschine</label>
-            <select id="edit-maschine">
+            <label>Auftrag Nr</label>
+            <select id="edit-arbeitsplan-auftrag-nr">
                 <option value="">-- Bitte wählen --</option>
             </select>
         </div>
-
         <div class="form-group">
-            <label>Dauer</label>
-            <input type="number" id="edit-dauer" />
+            <label>AG Nr</label>
+            <input type="text" id="edit-arbeitsplan-ag-nr" placeholder="z.B. AG001"/>
+        </div>
+        <div class="form-group">
+            <label>Maschine</label>
+            <select id="edit-arbeitsplan-maschine">
+                <option value="">-- Bitte wählen --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Dauer (Minuten)</label>
+            <input type="number" id="edit-arbeitsplan-dauer" min="1" placeholder="z.B. 120"/>
         </div>
         <div class="modal-actions">
-            <button id="arbeitsplan-save-btn" class="btn primary">Speichern</button>
-            <button id="arbeitsplan-cancel-btn" class="btn secondary">Abbrechen</button>
+            <button id="arbeitsplan-save-btn" class="btn primary">💾 Speichern</button>
+            <button id="arbeitsplan-cancel-btn" class="btn secondary">❌ Abbrechen</button>
         </div>
     </div>
 </div>
 
-<!-- Modal для создания нового Arbeitsplan -->
-<div id="add-ap-modal" class="modal hidden">
-    <div class="modal-content">
-        <h2>Neuer Arbeitsplan</h2>
-
-        <div class="form-group">
-            <label>Auftrag</label>
-            <select id="new-auftrag-select"></select>
-            <button id="new-auftrag-create" class="btn secondary">+ Neuer Auftrag</button>
-        </div>
-
-        <div class="form-group">
-            <label>AG-Nr (Reihenfolge)</label>
-            <input type="text" id="new-ag-nr" />
-        </div>
-
-        <div class="modal-actions">
-            <button id="add-ap-confirm" class="btn primary">Erstellen</button>
-            <button id="add-ap-cancel" class="btn secondary">Abbrechen</button>
-        </div>
-    </div>
-</div>
-
-
+<!-- Toast Notification -->
 <div id="toast" class="toast hidden">Gespeichert ✅</div>
 
-
 <script type="module">
-    console.log("🚀 Skript daten.html wird geladen...");
 
-    // Überprüfen Sie den Zustand von electronAPI beim Laden
-    console.log("🔍 Überprüfung von electronAPI beim Laden:", {
-        exists: !!window.electronAPI,
-        keys: window.electronAPI ? Object.keys(window.electronAPI) : 'undefiniert'
-    });
-
+    // Utility functions
     import {showMaschinen} from "../ui/maschine.js";
     import {showAuftraege} from "../ui/auftraege.js";
     import {showArbeitsplaene} from "../ui/arbeitsplane.js";
 
     document.addEventListener("DOMContentLoaded", () => {
-        console.log("🔄 DOM Content Loaded - Initialisierung beginnt");
-
-        // Überprüfen Sie die Verfügbarkeit von electronAPI
-        if (!window.electronAPI) {
-            console.error("❌ electronAPI ist nicht verfügbar!");
-            return;
-        }
-
-        console.log("✅ electronAPI ist verfügbar:", Object.keys(window.electronAPI));
-
-        // Daten für den aktiven Tab laden
-        console.log("🔄 Maschinen werden geladen...");
-        showMaschinen("maschinen-container");
-
         const tabs = document.querySelectorAll(".tab");
         const sections = document.querySelectorAll(".section");
-
-        console.log(`📋 ${tabs.length} Tabs und ${sections.length} Sektionen gefunden`);
 
         tabs.forEach(tab => {
             tab.addEventListener("click", () => {
                 const target = tab.getAttribute("data-tab");
-                console.log(`🖱️ Tab-Klick: ${target}`);
 
                 tabs.forEach(t => t.classList.remove("active"));
                 sections.forEach(s => s.classList.remove("active"));
@@ -428,20 +747,19 @@
                 tab.classList.add("active");
                 document.getElementById(target).classList.add("active");
 
-                // Daten beim Tab-Wechsel laden
-                if (target === "auftrage") {
-                    console.log("🔄 Aufträge werden geladen...");
-                    showAuftraege("auftrage-container");
-                } else if (target === "arbeitsplan") {
-                    console.log("🔄 Arbeitspläne werden geladen...");
-                    showArbeitsplaene("arbeitsplan-container");
-                } else if (target === "maschinen") {
-                    console.log("🔄 Maschinen werden neu geladen...");
-                    showMaschinen("maschinen-container");
+                if (target === "maschinen") {
+                    showMaschinen(null);
+                } else if (target === 'auftrage') {
+                    showAuftraege(null);
+                } else if (target === 'arbeitsplan') {
+                    showArbeitsplaene(null);
                 }
             });
         });
+
+        showMaschinen(null);
     });
+
 </script>
 </body>
 </html>
