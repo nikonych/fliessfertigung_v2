@@ -150,8 +150,8 @@ function findOrderAtPosition(x, y) {
     if (!window.simulation || !window.simulation.maschinenStatus) return null;
 
     const machines = Object.entries(window.simulation.maschinenStatus);
-    const queueStartOffset = 135;
 
+    // Используем те же константы, что и в drawMachineQueue
     const cols = Math.floor((canvas.width - LAYOUT.leftPadding - LAYOUT.rightPadding) / (LAYOUT.machineSize + LAYOUT.machineSpacing));
 
     for (let i = 0; i < machines.length; i++) {
@@ -166,15 +166,24 @@ function findOrderAtPosition(x, y) {
         const machineX = LAYOUT.leftPadding + col * (LAYOUT.machineSize + LAYOUT.machineSpacing);
         const machineY = LAYOUT.topPadding + row * (LAYOUT.machineSize + LAYOUT.machineSpacing * 2 + 200);
 
-        // Проверяем клики по элементам очереди
-        const queueStartY = machineY + queueStartOffset;
-        const itemsToShow = Math.min(5, machineQueue.length);
+        // Координаты начала очереди (соответствуют drawMachineQueue)
+        const queueStartY = machineY + LAYOUT.machineSize + 15; // +15 соответствует y + 15 в drawMachineQueue
+
+        // Параметры элементов очереди (должны совпадать с drawMachineQueue)
+        const maxItemsToShow = 5;
+        const itemSpacing = 3;
+        const itemHeight = Math.max(LAYOUT.queueItemHeight || 30, 30);
+        const itemWidth = LAYOUT.queueItemWidth || 70;
+        const queueX = machineX + (LAYOUT.machineSize - itemWidth) / 2;
+
+        const itemsToShow = Math.min(maxItemsToShow, machineQueue.length);
 
         for (let queueIndex = 0; queueIndex < itemsToShow; queueIndex++) {
-            const itemY = queueStartY + queueIndex * LAYOUT.queueItemHeight;
+            const queueY = queueStartY + queueIndex * (itemHeight + itemSpacing);
 
-            if (x >= machineX && x <= machineX + LAYOUT.machineSize &&
-                y >= itemY && y <= itemY + LAYOUT.queueItemHeight) {
+            // Проверяем попадание в область элемента очереди
+            if (x >= queueX && x <= queueX + itemWidth &&
+                y >= queueY && y <= queueY + itemHeight) {
                 return {
                     order: machineQueue[queueIndex],
                     machineNr: machineNr,

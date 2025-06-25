@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain, dialog} = require('electron');
+const {app, BrowserWindow, ipcMain, dialog, Menu} = require('electron');
 const path = require('path');
 app.commandLine.appendSwitch("gtk-version", "3");
 
@@ -44,6 +44,7 @@ function createWindow() {
 app.whenReady().then(() => {
     // Важно: Инициализируем базу данных при запуске приложения
     initializeDatabase();
+    // Menu.setApplicationMenu(null);
 
     registerIpcHandlers();
 
